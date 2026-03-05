@@ -1,0 +1,158 @@
+{
+  "projectType": "general",
+  "projectName": "Lumix",
+  "projectDescription": "A .NET Digital Audio Workstation (DAW) with Ableton Live-inspired UI and workflow",
+  "theme": "aspen",
+  "primaryColor": "#e99125",
+  "lightColor": "#312e2a",
+  "darkColor": "#e0e0e0",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "building-from-source"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core-concepts/tracks",
+              "core-concepts/clips",
+              "core-concepts/timeline",
+              "core-concepts/musical-time"
+            ]
+          },
+          {
+            "group": "Audio Features",
+            "pages": [
+              "audio/audio-tracks",
+              "audio/audio-clips",
+              "audio/audio-engine"
+            ]
+          },
+          {
+            "group": "MIDI Features",
+            "pages": [
+              "midi/midi-tracks",
+              "midi/midi-clips",
+              "midi/piano-roll",
+              "midi/virtual-keyboard"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/vst-plugins",
+              "plugins/built-in-plugins",
+              "plugins/plugin-chain"
+            ]
+          },
+          {
+            "group": "User Interface",
+            "pages": [
+              "ui/arrangement-view",
+              "ui/devices-view",
+              "ui/sidebar",
+              "ui/preferences"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/contributing",
+              "development/building-plugins"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/core/track",
+              "api/core/clip",
+              "api/core/musical-time",
+              "api/core/track-engine"
+            ]
+          },
+          {
+            "group": "Audio",
+            "pages": [
+              "api/audio/audio-track",
+              "api/audio/audio-clip",
+              "api/audio/audio-clip-data"
+            ]
+          },
+          {
+            "group": "MIDI",
+            "pages": [
+              "api/midi/midi-track",
+              "api/midi/midi-clip",
+              "api/midi/midi-clip-data"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "api/plugins/iaudio-processor",
+              "api/plugins/vst-plugin",
+              "api/plugins/vst-audio-processor",
+              "api/plugins/plugin-chain-sample-provider"
+            ]
+          },
+          {
+            "group": "Views",
+            "pages": [
+              "api/views/arrangement-view",
+              "api/views/timeline-v2",
+              "api/views/devices-view",
+              "api/views/midi-clip-view"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Audio and MIDI track support",
+    "VST2 plugin hosting",
+    "Real-time audio playback and rendering",
+    "Piano roll MIDI editor",
+    "Built-in audio effects (EQ, utilities)",
+    "Timeline-based arrangement view",
+    "Grid snapping and zoom controls",
+    "Virtual keyboard for MIDI input",
+    "Plugin chain management",
+    "Waveform visualization"
+  ],
+  "publicApiSurface": [
+    "Track (abstract class)",
+    "AudioTrack",
+    "MidiTrack",
+    "GroupTrack",
+    "Clip (abstract class)",
+    "AudioClip",
+    "MidiClip",
+    "IAudioProcessor",
+    "VstPlugin",
+    "VstAudioProcessor",
+    "PluginChainSampleProvider",
+    "TrackEngine",
+    "MusicalTime",
+    "TimeLineV2",
+    "ArrangementView",
+    "DevicesView",
+    "MidiClipView",
+    "SidebarView"
+  ]
+}
