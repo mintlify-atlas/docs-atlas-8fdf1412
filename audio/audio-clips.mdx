@@ -1,0 +1,391 @@
+---
+title: Audio Clips
+description: Working with audio clips in Lumix
+---
+
+## Overview
+
+Audio clips represent instances of audio files placed on the timeline. Each clip contains a reference to the audio data, waveform visualization, and timing information.
+
+## AudioClip Class
+
+The `AudioClip` class (~/workspace/source/Lumix/Clips/AudioClips/AudioClip.cs:10) extends the base `Clip` class to provide audio-specific functionality.
+
+### Key Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Clip` | `AudioClipData` | Reference to the underlying audio data |
+| `WaveFormImage` | `IntPtr` | Cached waveform visualization |
+| `StartTick` | `long` | Timeline position in ticks |
+| `DurationTicks` | `long` | Clip duration in ticks |
+| `StartMarker` | `long` | Trimmed portion from start (in ticks) |
+| `EndMarker` | `long` | Trimmed portion from end (in ticks) |
+| `Name` | `string` | Clip name (derived from filename) |
+| `Color` | `Vector4` | Clip color (inherited from track) |
+| `Enabled` | `bool` | Whether the clip is active |
+
+### Construction
+
+```csharp
+public AudioClip(AudioTrack audioTrack, AudioClipData clip, long startingTick = 0)
+{
+    Name = Path.GetFileNameWithoutExtension(clip.AudioFileReader.FileName);
+    Track = audioTrack;
+    Color = audioTrack.Color;
+    _clip = clip;
+    StartTick = startingTick;
+    _waveformData = WaveformRenderer.GetWaveformPeaks(
+        _clip.AudioFileReader.FileName, 
+        (int)GetClipWidth()
+    );
+}
+```
+
+## AudioClipData Class
+
+The `AudioClipData` class (~/workspace/source/Lumix/Clips/AudioClips/AudioClipData.cs:5) wraps the audio file reader and wave channel.
+
+```csharp
+public class AudioClipData
+{
+    public AudioFileReader AudioFileReader;
+    public WaveChannel32 Wave32;
+
+    public AudioClipData(string filePath)
+    {
+        AudioFileReader = new AudioFileReader(filePath);
+        Wave32 = new WaveChannel32(AudioFileReader);
+    }
+}
+```
+
+### Properties
+
+- **AudioFileReader**: NAudio's file reader for decoding audio
+- **Wave32**: 32-bit wave channel for processing
+
+## Clip Timing
+
+Clips use a sophisticated timing system based on both ticks and musical time.
+
+### Time Formats
+
+<CodeGroup>
+```csharp Ticks (Absolute)
+// Position in ticks from project start
+public long StartTick { get; protected set; }
+public long EndTick { get; protected set; }
+public long DurationTicks { get; protected set; }
+```
+
+```csharp Musical Time (Bars:Beats:Ticks)
+// Position in musical notation
+public MusicalTime StartMusicalTime { get; protected set; }
+public MusicalTime EndMusicalTime { get; protected set; }
+public MusicalTime DurationMusicalTime { get; protected set; }
+```
+
+```csharp Seconds (Real Time)
+// Duration based on audio file length
+protected override long GetClipDuration()
+{
+    return TimeLineV2.SecondsToTicks(_clip.AudioFileReader.TotalTime.TotalSeconds);
+}
+```
+</CodeGroup>
+
+### Clip Width Calculation
+
+```csharp
+protected override float GetClipWidth()
+{
+    return TimeLineV2.SecondsToTicks(_clip.AudioFileReader.TotalTime.TotalSeconds) 
+           * TimeLineV2.PixelsPerTick;
+}
+```
+
+The clip width in pixels is calculated from:
+1. Audio file duration in seconds
+2. Converted to ticks based on tempo
+3. Multiplied by current zoom level (pixels per tick)
+
+## Waveform Visualization
+
+Each clip displays a visual representation of its audio waveform.
+
+### Waveform Data Structure
+
+```csharp
+private (List<float> samples, float[] peaks, float[] valleys) _waveformData;
+```
+
+The waveform data contains:
+- **samples**: Raw audio sample data
+- **peaks**: Maximum values for each pixel column
+- **valleys**: Minimum values for each pixel column
+
+### Rendering
+
+```csharp
+protected override void RenderClipContent(float menuBarHeight, float clipHeight)
+{
+    WaveformRenderer.RenderWaveformSafeArea(
+        (_waveformData.peaks, _waveformData.valleys),
+        ImGui.GetWindowPos() + new Vector2(0, menuBarHeight), 
+        ClipWidth, 
+        clipHeight, 
+        Track.Enabled
+    );
+}
+```
+
+### Dynamic Resizing
+
+Waveform data is recalculated when zoom changes:
+
+```csharp
+public void ResizeWaveformData()
+{
+    int targetWidth = (int)GetClipWidth();
+    var data = WaveformRenderer.Resize(targetWidth, _waveformData.samples);
+    _waveformData.peaks = data.peaks;
+    _waveformData.valleys = data.valleys;
+}
+```
+
+<Note>
+  Waveform data is cached and only regenerated when the clip width changes, optimizing performance during playback.
+</Note>
+
+## Clip Operations
+
+### Positioning
+
+Clips snap to grid when positioned:
+
+```csharp
+long newTime = TimeLineV2.SnapToGrid(
+    TimeLineV2.PositionToTime(mousePos.X - ArrangementView.WindowPos.X - Track.DragStartOffsetX)
+);
+StartTick = Math.Clamp(newTime, 0, long.MaxValue);
+```
+
+### Duplication
+
+Clips can be duplicated with Ctrl+D:
+
+```csharp
+if (duplicated is AudioClip audioClip)
+{
+    var copy = new AudioClip(
+        this as AudioTrack, 
+        new AudioClipData(audioClip.Clip.AudioFileReader.FileName), 
+        newClipTime
+    );
+    Clips.Add(copy);
+    ArrangementView.SelectedClips.Clear();
+    ArrangementView.SelectedClips.Add(copy);
+}
+```
+
+### Moving Between Tracks
+
+Clips can be dragged between tracks:
+
+```csharp
+if (WantsToMove && !Track.TrackHasCursor)
+{
+    if (ImGui.BeginDragDropSource())
+    {
+        DeleteRequested = true;
+        if (this is AudioClip audioClip)
+        {
+            SidebarView.DraggedFilePath = audioClip.Clip.AudioFileReader.FileName;
+        }
+        ImGui.SetDragDropPayload("CLIP", IntPtr.Zero, 0);
+        ImGui.EndDragDropSource();
+    }
+}
+```
+
+### Splitting (Planned Feature)
+
+The clip splitting functionality is implemented but currently commented out:
+
+```csharp
+public void Split(float time)
+{
+    // Commented implementation shows:
+    // 1. Calculate split point in samples
+    // 2. Read and divide audio data
+    // 3. Save two new audio files
+    // 4. Create two new clips
+    // 5. Delete original clip
+}
+```
+
+## Clip States
+
+### Enable/Disable
+
+Clips can be individually enabled or disabled:
+- **Enabled**: Clip plays normally with full color
+- **Disabled**: Clip is skipped during playback, rendered in grayscale
+
+```csharp
+ImGui.PushStyleColor(ImGuiCol.ChildBg, 
+    Enabled ? backgroundCol * 0.6f : Vector4.Zero
+);
+```
+
+### Selection
+
+Multiple clips can be selected for batch operations:
+- Click to select single clip
+- Shift+Click to add to selection
+- Time selection area to select all clips in range
+
+## Playback Integration
+
+When a clip needs to play:
+
+```csharp
+public void Play(AudioFileReader audioFile, float offset, float endOffset)
+{
+    Track.Engine.Fire(audioFile, offset, endOffset);
+}
+```
+
+The track engine handles:
+1. Creating a new `AudioFileReader` instance
+2. Seeking to the start offset
+3. Creating a sample provider with proper duration
+4. Adding to the mixer
+
+<Warning>
+  Each playback creates a new `AudioFileReader` instance to allow the same clip to play multiple times simultaneously.
+</Warning>
+
+## Clip Menu Options
+
+Right-click on a clip to access:
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Cut | Ctrl+X | Cut clip to clipboard |
+| Copy | Ctrl+C | Copy clip to clipboard |
+| Duplicate | Ctrl+D | Create a copy |
+| Delete | Del | Remove clip |
+| Split | Ctrl+E | Split at playhead |
+| Rename | Ctrl+R | Change clip name |
+| Activate/Deactivate | 0 | Toggle enabled state |
+| Color Picker | - | Change clip color |
+
+## Clip Markers and Trimming
+
+Clips support non-destructive trimming:
+
+- **StartMarker**: Trims audio from the beginning
+- **EndMarker**: Trims audio from the end
+
+Both markers are expressed in ticks and don't modify the source file.
+
+```csharp
+// Effective duration considers markers
+public MusicalTime GetDurationInMusicalTime()
+{
+    return TimeLineV2.TicksToMusicalTime(DurationTicks - StartMarker - EndMarker);
+}
+
+public double GetDurationInSeconds()
+{
+    return TimeLineV2.TicksToSeconds(DurationTicks - StartMarker - EndMarker);
+}
+```
+
+## Visual Feedback
+
+### Hover Effects
+
+When hovering over a clip's menu bar:
+- Cursor changes to a hand icon
+- Clip can be dragged
+- Double-click to open in editor (when implemented)
+
+### Dragging
+
+While dragging:
+- Clip follows mouse position
+- Snaps to grid based on quantization settings
+- Visual feedback shows new position
+
+### Selection Highlighting
+
+Selected clips are rendered with a distinct selection color:
+
+```csharp
+bool selected = ArrangementView.SelectedClips.Contains(this);
+Vector4 backgroundCol = selected ? ImGuiTheme.SelectionCol : Color;
+```
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Waveform Caching">
+    Waveform peak data is calculated once and cached. Only recalculated when zoom changes significantly.
+  </Accordion>
+  
+  <Accordion title="Audio File Instances">
+    Each clip holds a single `AudioClipData` reference. New `AudioFileReader` instances are created only during playback.
+  </Accordion>
+  
+  <Accordion title="Rendering Optimization">
+    Clips are rendered using ImGui child windows for efficient clipping and input handling.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Organization" icon="folder">
+    - Use meaningful clip names
+    - Color-code related clips
+    - Keep clips organized on appropriate tracks
+  </Card>
+  
+  <Card title="Editing" icon="scissors">
+    - Use markers for non-destructive trimming
+    - Duplicate before making major changes
+    - Use time selection for precise operations
+  </Card>
+  
+  <Card title="Performance" icon="gauge">
+    - Disable unused clips instead of deleting
+    - Use consolidation for complex arrangements
+    - Monitor waveform cache size on long sessions
+  </Card>
+  
+  <Card title="Workflow" icon="workflow">
+    - Double-click clips to open editor
+    - Use keyboard shortcuts for faster editing
+    - Group related clips using time selection
+  </Card>
+</CardGroup>
+
+## Related Components
+
+- **Base Clip Class**: `~/workspace/source/Lumix/Clips/Clip.cs`
+- **Waveform Renderer**: Used for visualization
+- **TimeLineV2**: Timing and conversion utilities
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Audio Tracks" icon="list" href="/audio/audio-tracks">
+    Understand how tracks manage clips
+  </Card>
+  <Card title="Audio Engine" icon="gear" href="/audio/audio-engine">
+    Learn about audio playback and processing
+  </Card>
+</CardGroup>

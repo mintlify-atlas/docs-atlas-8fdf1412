@@ -1,0 +1,275 @@
+---
+title: MidiClipData
+description: Container class for MIDI data including notes, tempo map, and the underlying MIDI file.
+---
+
+## Overview
+
+The `MidiClipData` class is a data container that holds all MIDI-related information for a MIDI clip. It wraps the DryWetMidi `MidiFile` object and provides convenient access to notes and tempo information.
+
+## Constructors
+
+### MidiClipData(MidiFile)
+
+Creates MIDI clip data from an existing MIDI file.
+
+<ParamField path="midiFile" type="MidiFile" required>
+  The DryWetMidi MidiFile object to wrap.
+</ParamField>
+
+```csharp
+using Melanchall.DryWetMidi.Core;
+
+// Load a MIDI file and create clip data
+var midiFile = MidiFile.Read("path/to/file.mid");
+var clipData = new MidiClipData(midiFile);
+```
+
+### MidiClipData()
+
+Creates empty MIDI clip data with a default 2-bar length.
+
+```csharp
+// Create empty MIDI clip data with default length
+var clipData = new MidiClipData();
+```
+
+### MidiClipData(TimeSelection)
+
+Creates MIDI clip data with a specified duration based on a time selection.
+
+<ParamField path="time" type="TimeSelection" required>
+  Time selection defining the clip's length in musical time.
+</ParamField>
+
+```csharp
+// Create clip data with 4-bar length
+var selection = new TimeSelection
+{
+    Start = new MusicalTime(1, 1, 0),
+    End = new MusicalTime(5, 1, 0)
+};
+var clipData = new MidiClipData(selection);
+```
+
+## Properties
+
+### MidiFile
+
+<ResponseField name="MidiFile" type="MidiFile" required>
+  The underlying DryWetMidi MidiFile object containing all MIDI events and data.
+</ResponseField>
+
+```csharp
+// Access the MIDI file
+var midiFile = clipData.MidiFile;
+
+// Get MIDI file properties
+var chunks = midiFile.GetTrackChunks();
+var originalFormat = midiFile.OriginalFormat;
+```
+
+### Notes
+
+<ResponseField name="Notes" type="List<PNote>" required>
+  List of all notes (PNote objects) in the MIDI clip.
+</ResponseField>
+
+```csharp
+// Access all notes in the clip
+foreach (var note in clipData.Notes)
+{
+    Console.WriteLine($"Note: {note.NoteName}, Velocity: {note.Velocity}");
+}
+
+// Get note count
+int noteCount = clipData.Notes.Count;
+Console.WriteLine($"Total notes: {noteCount}");
+```
+
+### TempoMap
+
+<ResponseField name="TempoMap" type="TempoMap" required>
+  The tempo map containing tempo and time signature information for the MIDI data.
+</ResponseField>
+
+```csharp
+// Access the tempo map
+var tempoMap = clipData.TempoMap;
+
+// Get tempo information
+var tempo = tempoMap.GetTempoAtTime(new MetricTimeSpan());
+Console.WriteLine($"Tempo: {tempo.BeatsPerMinute} BPM");
+```
+
+## Constructor Behavior
+
+### Default Constructor
+
+When using the parameterless constructor:
+- Creates a new MIDI file with a single track chunk
+- Sets default length to 2 bars (using `BarBeatTicksTimeSpan(2, 0, 0)`)
+- Initializes with `TempoMap.Default`
+- Extracts all notes from the MIDI file into the `Notes` list
+
+### MidiFile Constructor
+
+When creating from an existing MIDI file:
+- Wraps the provided MIDI file
+- Extracts all notes using `midiFile.GetNotes()`
+- Converts DryWetMidi notes to `PNote` objects
+- Extracts the tempo map using `midiFile.GetTempoMap()`
+
+### TimeSelection Constructor
+
+When creating from a time selection:
+- Creates a new MIDI file with empty track
+- Sets length based on the time selection's duration
+- Calculates length in bars, beats, and ticks from the selection
+- Initializes with `TempoMap.Default`
+
+## Usage Examples
+
+### Creating Empty MIDI Data
+
+```csharp
+// Create an empty MIDI clip with default 2-bar length
+var emptyData = new MidiClipData();
+
+Console.WriteLine($"Note count: {emptyData.Notes.Count}");
+Console.WriteLine($"Tempo: {emptyData.TempoMap.GetTempoAtTime(new MetricTimeSpan()).BeatsPerMinute} BPM");
+```
+
+### Loading from MIDI File
+
+```csharp
+using Melanchall.DryWetMidi.Core;
+using Melanchall.DryWetMidi.Interaction;
+
+// Load an existing MIDI file
+var midiFile = MidiFile.Read("path/to/melody.mid");
+var clipData = new MidiClipData(midiFile);
+
+// Inspect the loaded data
+Console.WriteLine($"Loaded {clipData.Notes.Count} notes");
+
+// Get duration
+var duration = clipData.MidiFile.GetDuration<MetricTimeSpan>();
+Console.WriteLine($"Duration: {duration.TotalSeconds} seconds");
+
+// Access individual notes
+foreach (var note in clipData.Notes)
+{
+    Console.WriteLine($"Note: {note.NoteName} at {note.Time}");
+}
+```
+
+### Creating with Specific Duration
+
+```csharp
+// Create clip data with an 8-bar duration
+var timeSelection = new TimeSelection();
+timeSelection.SetStart(new MusicalTime(1, 1, 0));
+timeSelection.SetEnd(new MusicalTime(9, 1, 0));
+
+var clipData = new MidiClipData(timeSelection);
+
+var duration = clipData.MidiFile.GetDuration<MetricTimeSpan>();
+Console.WriteLine($"Created clip with duration: {duration.TotalSeconds:F2} seconds");
+```
+
+### Modifying Notes
+
+```csharp
+using Melanchall.DryWetMidi.Interaction;
+using Melanchall.DryWetMidi.MusicTheory;
+
+// Create empty clip data
+var clipData = new MidiClipData();
+
+// Add notes programmatically to the MIDI file
+using (var notesManager = clipData.MidiFile.ManageNotes())
+{
+    var note1 = new Note(NoteName.C, 4, length: 480, time: 0);
+    var note2 = new Note(NoteName.E, 4, length: 480, time: 480);
+    var note3 = new Note(NoteName.G, 4, length: 480, time: 960);
+    
+    notesManager.Notes.Add(note1);
+    notesManager.Notes.Add(note2);
+    notesManager.Notes.Add(note3);
+}
+
+// Refresh the Notes list
+clipData.Notes.Clear();
+foreach (var note in clipData.MidiFile.GetNotes())
+{
+    clipData.Notes.Add(new PNote(note));
+}
+
+Console.WriteLine($"Added {clipData.Notes.Count} notes");
+```
+
+### Working with Tempo
+
+```csharp
+using Melanchall.DryWetMidi.Interaction;
+
+// Create clip data
+var clipData = new MidiClipData();
+
+// Access tempo information
+var tempo = clipData.TempoMap.GetTempoAtTime(new MetricTimeSpan());
+Console.WriteLine($"Current tempo: {tempo.BeatsPerMinute} BPM");
+
+// The tempo map can be used for time conversions
+var timeConverter = new TimeConverter(clipData.TempoMap);
+var musicalTime = new BarBeatTicksTimeSpan(2, 0, 0);
+var metricsTime = TimeConverter.ConvertTo<MetricTimeSpan>(musicalTime, clipData.TempoMap);
+Console.WriteLine($"2 bars = {metricsTime.TotalSeconds} seconds");
+```
+
+### Saving MIDI Data
+
+```csharp
+// Create and populate MIDI clip data
+var clipData = new MidiClipData();
+
+// ... add notes and events ...
+
+// Save to file
+clipData.MidiFile.Write("output.mid");
+
+// Save with overwrite
+clipData.MidiFile.Write("output.mid", overwriteFile: true);
+```
+
+## Integration with MidiClip
+
+```csharp
+// Create a MIDI track
+var track = new MidiTrack("Piano");
+
+// Create clip data from a file
+var midiFile = MidiFile.Read("melody.mid");
+var clipData = new MidiClipData(midiFile);
+
+// Create a clip with the data
+var clip = new MidiClip(track, clipData, 0);
+track.Clips.Add(clip);
+
+// Access the clip data later
+var notes = clip.MidiClipData.Notes;
+var tempoMap = clip.MidiClipData.TempoMap;
+
+Console.WriteLine($"Clip has {notes.Count} notes");
+```
+
+## Notes
+
+- `MidiClipData` uses the DryWetMidi library for MIDI file handling
+- `PNote` is a wrapper around DryWetMidi's `Note` class used for piano roll editing
+- The default constructor creates a 2-bar clip using `BarBeatTicksTimeSpan(2, 0, 0)`
+- When loading from a MIDI file, all notes are automatically extracted and converted to `PNote` objects
+- The `TempoMap` property provides access to tempo and time signature information
+- Changes to the `MidiFile` property should be followed by updating the `Notes` list if note data changed
+- The class is primarily used internally by `MidiClip` but can be used independently for MIDI data manipulation

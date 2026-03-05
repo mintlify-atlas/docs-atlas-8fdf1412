@@ -1,0 +1,270 @@
+---
+title: 'MusicalTime'
+description: 'Struct for representing time in musical notation (bars:beats:ticks)'
+---
+
+## Overview
+
+The `MusicalTime` struct represents time in musical notation using bars (measures), beats, and ticks. This is the standard way to represent time positions in the Lumix DAW, allowing for musical operations that maintain rhythmic relationships.
+
+## Namespace
+
+```csharp
+Lumix
+```
+
+## Declaration
+
+```csharp
+public struct MusicalTime
+```
+
+## Fields
+
+<ResponseField name="Bars" type="int" required>
+  The number of bars (measures).
+  ```csharp
+  public int Bars
+  ```
+</ResponseField>
+
+<ResponseField name="Beats" type="int" required>
+  The number of beats within the current bar.
+  ```csharp
+  public int Beats
+  ```
+</ResponseField>
+
+<ResponseField name="Ticks" type="int" required>
+  The number of ticks within the current beat. The resolution depends on the project's PPQ (Pulses Per Quarter note) setting.
+  ```csharp
+  public int Ticks
+  ```
+</ResponseField>
+
+## Constructor
+
+### MusicalTime
+
+Creates a new MusicalTime instance.
+
+```csharp
+public MusicalTime(int bars, int beats, int ticks)
+```
+
+<ParamField path="bars" type="int" required>
+  The number of bars.
+</ParamField>
+
+<ParamField path="beats" type="int" required>
+  The number of beats.
+</ParamField>
+
+<ParamField path="ticks" type="int" required>
+  The number of ticks.
+</ParamField>
+
+## Operators
+
+### Addition (+)
+
+Adds two MusicalTime values.
+
+```csharp
+public static MusicalTime operator +(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(2, 3, 100);
+var time2 = new MusicalTime(1, 1, 50);
+var result = time1 + time2; // Result: Bars=3, Beats=4, Ticks=150
+```
+
+### Subtraction (-)
+
+Subtracts one MusicalTime from another.
+
+```csharp
+public static MusicalTime operator -(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(4, 2, 200);
+var time2 = new MusicalTime(1, 1, 50);
+var result = time1 - time2; // Result: Bars=3, Beats=1, Ticks=150
+```
+
+### Multiplication (*)
+
+Multiplies two MusicalTime values component-wise.
+
+```csharp
+public static MusicalTime operator *(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(2, 2, 100);
+var time2 = new MusicalTime(2, 1, 2);
+var result = time1 * time2; // Result: Bars=4, Beats=2, Ticks=200
+```
+
+### Division (/)
+
+Divides one MusicalTime by another component-wise.
+
+```csharp
+public static MusicalTime operator /(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(4, 4, 200);
+var time2 = new MusicalTime(2, 2, 2);
+var result = time1 / time2; // Result: Bars=2, Beats=2, Ticks=100
+```
+
+### Greater Than (>)
+
+Compares two MusicalTime values.
+
+```csharp
+public static bool operator >(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(2, 3, 100);
+var time2 = new MusicalTime(2, 2, 400);
+bool isGreater = time1 > time2; // true (more beats)
+```
+
+### Less Than (&lt;)
+
+Compares two MusicalTime values.
+
+```csharp
+public static bool operator <(MusicalTime a, MusicalTime b)
+```
+
+### Greater Than or Equal (&gt;=)
+
+Compares two MusicalTime values.
+
+```csharp
+public static bool operator >=(MusicalTime a, MusicalTime b)
+```
+
+### Less Than or Equal (&lt;=)
+
+Compares two MusicalTime values.
+
+```csharp
+public static bool operator <=(MusicalTime a, MusicalTime b)
+```
+
+### Equality (==)
+
+Checks if two MusicalTime values are equal.
+
+```csharp
+public static bool operator ==(MusicalTime a, MusicalTime b)
+```
+
+**Example**:
+```csharp
+var time1 = new MusicalTime(1, 2, 100);
+var time2 = new MusicalTime(1, 2, 100);
+bool areEqual = time1 == time2; // true
+```
+
+### Inequality (!=)
+
+Checks if two MusicalTime values are not equal.
+
+```csharp
+public static bool operator !=(MusicalTime a, MusicalTime b)
+```
+
+## Methods
+
+### Equals
+
+Determines whether the specified object is equal to the current MusicalTime.
+
+```csharp
+public override bool Equals(object obj)
+```
+
+<ParamField path="obj" type="object" required>
+  The object to compare.
+</ParamField>
+
+**Returns**: `bool` - true if equal, false otherwise
+
+### GetHashCode
+
+Returns a hash code for the current MusicalTime.
+
+```csharp
+public override int GetHashCode()
+```
+
+**Returns**: `int` - A hash code for the current object
+
+## Example Usage
+
+```csharp
+// Creating a musical time representing bar 4, beat 2, tick 240
+var time = new MusicalTime(4, 2, 240);
+
+// Accessing components
+Console.WriteLine($"{time.Bars}:{time.Beats}:{time.Ticks}"); // Output: "4:2:240"
+
+// Adding time values
+var offset = new MusicalTime(0, 2, 0); // Two beats
+var newTime = time + offset;
+Console.WriteLine($"{newTime.Bars}:{newTime.Beats}:{newTime.Ticks}"); // Output: "4:4:240"
+
+// Comparing times
+var time1 = new MusicalTime(1, 1, 0);
+var time2 = new MusicalTime(2, 1, 0);
+
+if (time2 > time1)
+{
+    Console.WriteLine("Time 2 is later");
+}
+
+// Using in clip timing
+var clipStart = new MusicalTime(1, 1, 0);
+var clipDuration = new MusicalTime(2, 0, 0); // 2 bars long
+var clipEnd = clipStart + clipDuration; // Bar 3, beat 1
+```
+
+## Common Time Values
+
+Assuming 4/4 time signature and 480 PPQ:
+
+- **One quarter note**: `new MusicalTime(0, 1, 0)`
+- **One bar**: `new MusicalTime(1, 0, 0)`
+- **Half note**: `new MusicalTime(0, 2, 0)`
+- **Eighth note**: `new MusicalTime(0, 0, 240)`
+- **Sixteenth note**: `new MusicalTime(0, 0, 120)`
+
+## Notes
+
+<Note>
+  The comparison operators perform hierarchical comparison: bars are compared first, then beats, then ticks.
+</Note>
+
+<Warning>
+  Arithmetic operations do not normalize values. For example, adding beats may result in a Beats value greater than the time signature's beats per bar. Use conversion utilities to normalize if needed.
+</Warning>
+
+## See Also
+
+- [Clip](/api/core/clip) - Uses MusicalTime for timing
+- [Track](/api/core/track) - Contains time selection using MusicalTime
+- [TrackEngine](/api/core/track-engine) - Processes clips at specific musical times

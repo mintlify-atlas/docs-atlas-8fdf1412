@@ -1,0 +1,460 @@
+---
+title: Clips
+description: Working with audio and MIDI clips in Lumix DAW
+---
+
+Clips are containers for audio or MIDI data that live on tracks. They represent a specific portion of content positioned at a particular time on the timeline.
+
+## Clip Architecture
+
+All clips in Lumix inherit from the abstract `Clip` base class:
+
+```csharp Lumix/Clips/Clip.cs
+public abstract class Clip
+{
+    public string Id { get; } = Guid.NewGuid().ToString();
+    public string Name { get; protected set; }
+    public bool Enabled { get; set; } = true;
+    public Track Track { get; protected set; }
+    public Vector4 Color { get; set; }
+}
+```
+
+## Core Properties
+
+### Identity
+
+```csharp Lumix/Clips/Clip.cs
+public string Id { get; } = Guid.NewGuid().ToString();
+public string Name { get; protected set; }
+```
+
+Each clip has a unique identifier and customizable name.
+
+### State
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Clip state
+/// </summary>
+public bool Enabled { get; set; } = true;
+```
+
+Disabled clips remain visible but don't produce audio during playback.
+
+### Visual Properties
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Clip width in pixels
+/// </summary>
+public float ClipWidth { get; protected set; }
+
+private Vector4 _color;
+/// <summary>
+/// Clip color
+/// </summary>
+public Vector4 Color { get => _color; set { _color = value; } }
+```
+
+## Time Properties
+
+Clips maintain several time-related properties in both tick and musical time formats:
+
+### Tick-Based Times
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Arrangement clip starting time in ticks
+/// </summary>
+public long StartTick { get; protected set; }
+
+/// <summary>
+/// Arrangement clip ending time in ticks
+/// </summary>
+public long EndTick { get; protected set; }
+
+/// <summary>
+/// Duration of the clip in ticks
+/// </summary>
+public long DurationTicks { get; protected set; }
+```
+
+<Info>
+  Lumix uses a resolution of **960 PPQ** (Pulses Per Quarter note) for precise timing.
+</Info>
+
+### Musical Time Representation
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Arrangement clip starting time in Musical Time
+/// </summary>
+public MusicalTime StartMusicalTime { get; protected set; }
+
+/// <summary>
+/// Arrangement clip ending time in MusicalTime
+/// </summary>
+public MusicalTime EndMusicalTime { get; protected set; }
+
+/// <summary>
+/// Duration of the clip in Musical Time
+/// </summary>
+public MusicalTime DurationMusicalTime { get; protected set; }
+```
+
+### Clip Markers
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Cutted portion in ticks from start of the clip
+/// </summary>
+public long StartMarker { get; protected set; }
+
+/// <summary>
+/// Cutted portion in ticks from end of the clip
+/// </summary>
+public long EndMarker { get; protected set; }
+```
+
+Markers allow non-destructive trimming of clips from either end.
+
+## Time Conversion Methods
+
+Clips provide convenient methods for time conversions:
+
+### Setting Start Time
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Set start time of the clip in ticks
+/// </summary>
+public void SetStartTick(long tick)
+{
+    StartTick = tick;
+}
+```
+
+### Getting Musical Time
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Get start time of clip in Bars:Beats:Ticks
+/// </summary>
+public MusicalTime GetStartTimeInMusicalTime()
+{
+    return TimeLineV2.TicksToMusicalTime(StartTick + StartMarker, true);
+}
+
+/// <summary>
+/// Get end time of clip in Bars:Beats:Ticks
+/// </summary>
+public MusicalTime GetEndTimeInMusicalTime()
+{
+    var start = GetStartTimeInMusicalTime();
+    var duration = GetDurationInMusicalTime();
+    return new MusicalTime(start.Bars + duration.Bars, start.Beats + duration.Beats, start.Ticks + duration.Ticks);
+}
+
+/// <summary>
+/// Get duration of clip in Bars:Beats:Ticks
+/// </summary>
+public MusicalTime GetDurationInMusicalTime()
+{
+    return TimeLineV2.TicksToMusicalTime(DurationTicks - StartMarker - EndMarker);
+}
+```
+
+### Getting Duration in Seconds
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Get duration of clip in seconds
+/// </summary>
+public double GetDurationInSeconds()
+{
+    return TimeLineV2.TicksToSeconds(DurationTicks - StartMarker - EndMarker);
+}
+```
+
+## Clip States and Flags
+
+### Movement and Interaction
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Flag used to move clip between tracks
+/// </summary>
+public bool WantsToMove { get; protected set; }
+
+/// <summary>
+/// Flag used to determine if this clip is hovered (menubar included)
+/// </summary>
+public bool ClipIsHovered { get; protected set; }
+
+/// <summary>
+/// Flag used to determine if this clip menubar only is hovered
+/// </summary>
+public bool MenuBarIsHovered { get; protected set; }
+```
+
+### Playback State
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Flag used to determine if this clip has been fired during current playback
+/// </summary>
+public bool HasPlayed { get; set; }
+```
+
+This flag ensures clips only trigger once per playback cycle.
+
+### Edit Operations
+
+```csharp Lumix/Clips/Clip.cs
+public bool DeleteRequested { get; set; }
+public bool DuplicateRequested { get; set; }
+```
+
+## Clip Playback
+
+Clips provide methods to trigger playback:
+
+### Audio Playback
+
+```csharp Lumix/Clips/Clip.cs
+public void Play(AudioFileReader audioFile, float offset, float endOffset)
+{
+    Track.Engine.Fire(audioFile, offset, endOffset);
+}
+```
+
+### MIDI Playback
+
+```csharp Lumix/Clips/Clip.cs
+public void Play(MidiFile midiFile, float offset)
+{
+    Track.Engine.Fire(midiFile, offset, offset);
+}
+```
+
+## Clip Movement and Positioning
+
+Clips can be moved along the timeline and between tracks:
+
+<Steps>
+  <Step title="Click and Hold">
+    Click on the clip's menu bar to start dragging
+  </Step>
+  <Step title="Drag Horizontally">
+    Move the clip along the timeline on the same track
+  </Step>
+  <Step title="Drag Vertically">
+    Move the clip to a different track of the same type
+  </Step>
+  <Step title="Release">
+    Release to place the clip at the new position (snapped to grid)
+  </Step>
+</Steps>
+
+### Drag Implementation
+
+```csharp Lumix/Clips/Clip.cs
+if (isClicked && Track.DraggedClip == null && !wasDoubleClicked && !resizeHovered && !_isLeftResizing && !_isRightResizing)
+{
+    Track.SetDraggedClip(this);
+    Track.SetDragStartOffset(mousePos.X - TimeLineV2.TimeToPosition(StartTick) - ArrangementView.WindowPos.X);
+}
+
+// If dragging, update the clip's position
+if (Track.DraggedClip == this && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+{
+    long newTime = TimeLineV2.SnapToGrid(TimeLineV2.PositionToTime(mousePos.X - ArrangementView.WindowPos.X - Track.DragStartOffsetX));
+    StartTick = Math.Clamp(newTime, 0, long.MaxValue);
+}
+
+// Stop dragging when the mouse button is released
+if (Track.DraggedClip != null && ImGui.IsMouseReleased(ImGuiMouseButton.Left))
+{
+    Track.SetDraggedClip(null);
+}
+```
+
+## Clip Duplication
+
+Clips can be duplicated while dragging:
+
+```csharp Lumix/Clips/Clip.cs
+// Request clip copy
+if (Track.DraggedClip == this && ImGui.IsKeyDown(ImGuiKey.ModCtrl))
+{
+    if (ImGui.IsKeyPressed(ImGuiKey.ModCtrl, false) || ImGui.IsMouseClicked(ImGuiMouseButton.Left, false))
+    {
+        // Make a copy
+        DuplicateRequested = true;
+    }
+}
+```
+
+<Note>
+  Hold **Ctrl** while dragging a clip to create a duplicate instead of moving the original.
+</Note>
+
+## Clip Selection
+
+Clips support multi-selection for batch operations:
+
+```csharp Lumix/Clips/Clip.cs
+if (isHoveringMenuBar && (ImGui.IsMouseClicked(ImGuiMouseButton.Left) || ImGui.IsMouseClicked(ImGuiMouseButton.Right)))
+{
+    if (!ArrangementView.SelectedClips.Contains(this))
+    {
+        ArrangementView.SelectedClips.Add(this);
+    }
+}
+
+if (!isHoveringMenuBar && (ImGui.IsMouseClicked(ImGuiMouseButton.Left) || ImGui.IsMouseClicked(ImGuiMouseButton.Right)) && !ImGui.IsKeyDown(ImGuiKey.ModShift))
+    if (ArrangementView.SelectedClips.Contains(this))
+        ArrangementView.SelectedClips.Remove(this);
+```
+
+<Info>
+  Hold **Shift** to add clips to the current selection without deselecting others.
+</Info>
+
+## Moving Clips Between Tracks
+
+Clips can be moved between tracks using drag-and-drop:
+
+```csharp Lumix/Clips/Clip.cs
+if (WantsToMove && !Track.TrackHasCursor)
+{
+    // moving clip between tracks
+    if (ImGui.BeginDragDropSource())
+    {
+        DeleteRequested = true;
+        if (this is AudioClip audioClip)
+        {
+            SidebarView.DraggedFilePath = audioClip.Clip.AudioFileReader.FileName;
+        }
+
+        if (this is MidiClip midiClip)
+        {
+            midiClip.MidiClipData.MidiFile.Write("dragged_midi_clip.mid", true);
+            SidebarView.DraggedFilePath = "dragged_midi_clip.mid";
+        }
+        ImGui.SetDragDropPayload("CLIP", IntPtr.Zero, 0);
+        ImGui.EndDragDropSource();
+    }
+}
+```
+
+## Clip Context Menu
+
+Right-clicking on a clip opens a context menu:
+
+```csharp Lumix/Clips/Clip.cs
+protected virtual void RenderPopupMenu()
+{
+    ImGui.PushStyleColor(ImGuiCol.Separator, Vector4.One);
+    if (ImGui.MenuItem("Cut", "Ctrl+X"))
+    {
+        // Cut operation
+    }
+    if (ImGui.MenuItem("Copy", "Ctrl+C"))
+    {
+        // Copy operation
+    }
+    if (ImGui.MenuItem("Duplicate", "Ctrl+D"))
+    {
+        DuplicateRequested = true;
+    }
+    if (ImGui.MenuItem("Delete", "Del"))
+    {
+        DeleteRequested = true;
+    }
+    if (ImGui.MenuItem("Split", "Ctrl+E", false, !TimeLine.IsRunning))
+    {
+        // Split operation
+    }
+    if (ImGui.MenuItem("Rename", "Ctrl+R"))
+    {
+        _renameRequested = true;
+    }
+    string state = Enabled ? "Deactivate Clip" : "Activate Clip";
+    if (ImGui.MenuItem(state, "0"))
+    {
+        Enabled = !Enabled;
+    }
+    ImGui.ColorEdit4("Clip Color", ref _color, ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.NoInputs);
+    ImGui.PopStyleColor();
+}
+```
+
+## Abstract Methods
+
+Subclasses must implement these methods:
+
+```csharp Lumix/Clips/Clip.cs
+/// <summary>
+/// Get clip duration in ticks
+/// </summary>
+protected abstract long GetClipDuration();
+
+/// <summary>
+/// Get clip width in pixels
+/// </summary>
+protected abstract float GetClipWidth();
+
+/// <summary>
+/// Render inner content of clip
+/// </summary>
+protected abstract void RenderClipContent(float menuBarHeight, float clipHeight);
+
+protected abstract void RenderClipContent(Vector2 pos, float width, float height);
+
+protected abstract void OnClipDoubleClickLeft();
+```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+D** | Duplicate Clip |
+| **Ctrl+X** | Cut Clip |
+| **Ctrl+C** | Copy Clip |
+| **Ctrl+R** | Rename Clip |
+| **Ctrl+E** | Split Clip |
+| **Del** | Delete Clip |
+| **0** | Toggle Clip Enable/Disable |
+| **Ctrl+Drag** | Duplicate while dragging |
+
+## Visual Feedback
+
+Clips provide visual feedback during interaction:
+
+```csharp Lumix/Clips/Clip.cs
+if (isHoveringMenuBar && !resizeHovered && !_isLeftResizing && !_isRightResizing)
+{
+    ImGui.SetMouseCursor(ImGuiMouseCursor.None);
+    ImGui.GetForegroundDrawList().AddText(ImGui.GetMousePos() - Vector2.One - ImGui.CalcTextSize(FontAwesome6.Hand) / 2,
+        ImGui.GetColorU32(new Vector4(0, 0, 0, 1)), FontAwesome6.Hand);
+    ImGui.GetForegroundDrawList().AddText(ImGui.GetMousePos() + Vector2.One - ImGui.CalcTextSize(FontAwesome6.Hand) / 2,
+        ImGui.GetColorU32(new Vector4(0, 0, 0, 1)), FontAwesome6.Hand);
+    ImGui.GetForegroundDrawList().AddText(ImGui.GetMousePos() - ImGui.CalcTextSize(FontAwesome6.Hand) / 2,
+        ImGui.GetColorU32(Vector4.One), FontAwesome6.Hand);
+}
+```
+
+The cursor changes to a hand icon when hovering over the clip menu bar.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Tracks" href="/core-concepts/tracks" icon="bars">
+    Learn about the track system
+  </Card>
+  <Card title="Musical Time" href="/core-concepts/musical-time" icon="clock">
+    Understanding the Bars:Beats:Ticks format
+  </Card>
+</CardGroup>

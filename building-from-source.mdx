@@ -1,0 +1,501 @@
+---
+title: "Building from Source"
+description: "Compile Lumix from source code for development and customization"
+---
+
+## Overview
+
+This guide walks you through compiling Lumix from source code. Building from source is ideal for developers who want to contribute to the project, customize the DAW, or test the latest features.
+
+<Warning>
+  The source code is provided as-is. Expect crashes, unfinished features, and incomplete functionality. For the latest commits, check the [Development branch](https://github.com/ImAxel0/Lumix/tree/Development).
+</Warning>
+
+## Prerequisites
+
+### Required Software
+
+<Steps>
+  <Step title="Install .NET 6 SDK">
+    The .NET 6 SDK is required to compile Lumix.
+    
+    **Download and Install:**
+    - Visit [https://dotnet.microsoft.com/download/dotnet/6.0](https://dotnet.microsoft.com/download/dotnet/6.0)
+    - Download the **SDK** (not just the runtime) for your platform
+    - Run the installer and follow the instructions
+    
+    **Verify Installation:**
+    ```bash
+    dotnet --version
+    ```
+    
+    Expected output: `6.0.x` or higher
+    
+    <Note>
+      Make sure to install the SDK, not just the runtime. The SDK includes the compiler and build tools.
+    </Note>
+  </Step>
+
+  <Step title="Install Git">
+    Required to clone the repository.
+    
+    - Windows: Download from [git-scm.com](https://git-scm.com/)
+    - Verify: `git --version`
+  </Step>
+
+  <Step title="Install an IDE (Recommended)">
+    Choose one of the following:
+    
+    - **Visual Studio 2022** (Community, Professional, or Enterprise)
+      - Free Community edition: [visualstudio.microsoft.com](https://visualstudio.microsoft.com/)
+      - Install the ".NET desktop development" workload
+    - **Visual Studio Code** with C# extension
+    - **JetBrains Rider**
+    
+    <Note>
+      Visual Studio 2022 is recommended as it provides the best .NET development experience on Windows.
+    </Note>
+  </Step>
+</Steps>
+
+## Clone the Repository
+
+<Steps>
+  <Step title="Clone Lumix Source Code">
+    Open a terminal or command prompt and run:
+    
+    ```bash
+    git clone https://github.com/ImAxel0/Lumix.git
+    cd Lumix
+    ```
+    
+    **For Latest Development Build:**
+    ```bash
+    git checkout Development
+    ```
+    
+    <Warning>
+      The Development branch contains the latest features but may be unstable.
+    </Warning>
+  </Step>
+
+  <Step title="Verify Project Structure">
+    Ensure you have the following structure:
+    ```
+    Lumix/
+    ├── Lumix/
+    │   ├── Lumix.csproj
+    │   ├── Program.cs
+    │   ├── Resources/
+    │   └── ...
+    └── README.md
+    ```
+  </Step>
+</Steps>
+
+## Configuration
+
+### Choose Your Build Configuration
+
+<Warning>
+  **Important**: Lumix must be compiled as either **x86** or **x64**. The AnyCPU configuration is not supported.
+</Warning>
+
+### Debug Mode Configuration
+
+<Note>
+  By default, the project defines a `LOCAL_DEV` constant in Debug mode. If you want to run the DAW in Debug mode, you must remove this constant.
+</Note>
+
+**To Remove LOCAL_DEV Constant:**
+
+Edit `Lumix/Lumix.csproj` and comment out or remove these lines:
+
+```xml
+<!-- IF YOU WANT TO RUN THE DAW IN DEBUG MODE REMOVE OR COMMENT OUT THE FOLLOWING CONSTANT DEFINITION -->
+<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+  <DefineConstants>LOCAL_DEV</DefineConstants>
+</PropertyGroup>
+```
+
+After removing:
+
+```xml
+<!-- IF YOU WANT TO RUN THE DAW IN DEBUG MODE REMOVE OR COMMENT OUT THE FOLLOWING CONSTANT DEFINITION -->
+<!--
+<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+  <DefineConstants>LOCAL_DEV</DefineConstants>
+</PropertyGroup>
+-->
+```
+
+## Building the Project
+
+<Tabs>
+  <Tab title="Visual Studio">
+    <Steps>
+      <Step title="Open Solution">
+        1. Launch Visual Studio 2022
+        2. Click **File > Open > Project/Solution**
+        3. Navigate to the Lumix folder and open `Lumix.csproj`
+      </Step>
+
+      <Step title="Select Platform">
+        In the toolbar, select your target platform:
+        - **x64** (recommended for modern systems)
+        - **x86** (for 32-bit systems)
+        
+        <Warning>
+          Do not use "Any CPU" - Lumix requires a specific architecture.
+        </Warning>
+      </Step>
+
+      <Step title="Select Configuration">
+        Choose between:
+        - **Debug**: For development with debugging symbols (remember to remove `LOCAL_DEV` constant)
+        - **Release**: For optimized builds
+      </Step>
+
+      <Step title="Restore NuGet Packages">
+        Visual Studio will automatically restore packages. If not:
+        - Right-click the solution in Solution Explorer
+        - Select **Restore NuGet Packages**
+      </Step>
+
+      <Step title="Build the Project">
+        - Press **F6** or click **Build > Build Solution**
+        - Wait for the build to complete
+        - Check the Output window for any errors
+      </Step>
+
+      <Step title="Run Lumix">
+        Press **F5** to run with debugging, or **Ctrl+F5** to run without debugging.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Command Line">
+    <Steps>
+      <Step title="Navigate to Project Directory">
+        ```bash
+        cd Lumix/Lumix
+        ```
+      </Step>
+
+      <Step title="Restore Dependencies">
+        ```bash
+        dotnet restore
+        ```
+        
+        This will download all required NuGet packages:
+        - ImGui.NET (1.90.8.1)
+        - NAudio (2.2.1)
+        - DryWetMidi (7.2.0)
+        - VST.NET2-Host (2.1.0)
+        - Veldrid packages
+      </Step>
+
+      <Step title="Build for x64 (Recommended)">
+        **Debug Build:**
+        ```bash
+        dotnet build -c Debug -r win-x64
+        ```
+        
+        **Release Build:**
+        ```bash
+        dotnet build -c Release -r win-x64
+        ```
+        
+        <Note>
+          Remember to remove the `LOCAL_DEV` constant if building in Debug mode.
+        </Note>
+      </Step>
+
+      <Step title="Build for x86 (32-bit)">
+        **Debug Build:**
+        ```bash
+        dotnet build -c Debug -r win-x86
+        ```
+        
+        **Release Build:**
+        ```bash
+        dotnet build -c Release -r win-x86
+        ```
+      </Step>
+
+      <Step title="Run the Application">
+        ```bash
+        dotnet run --configuration Release --runtime win-x64
+        ```
+        
+        Or navigate to the output directory and run the executable:
+        ```bash
+        cd bin/Release/net6.0/win-x64
+        ./Lumix.exe
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Visual Studio Code">
+    <Steps>
+      <Step title="Open Project">
+        ```bash
+        cd Lumix
+        code .
+        ```
+      </Step>
+
+      <Step title="Install C# Extension">
+        If not already installed:
+        1. Open Extensions (Ctrl+Shift+X)
+        2. Search for "C# Dev Kit" or "C#"
+        3. Install the extension
+      </Step>
+
+      <Step title="Configure Build Task">
+        Create `.vscode/tasks.json`:
+        
+        ```json
+        {
+          "version": "2.0.0",
+          "tasks": [
+            {
+              "label": "build-x64",
+              "command": "dotnet",
+              "type": "process",
+              "args": [
+                "build",
+                "${workspaceFolder}/Lumix/Lumix.csproj",
+                "-c", "Release",
+                "-r", "win-x64"
+              ],
+              "problemMatcher": "$msCompile",
+              "group": {
+                "kind": "build",
+                "isDefault": true
+              }
+            }
+          ]
+        }
+        ```
+      </Step>
+
+      <Step title="Build and Run">
+        - Press **Ctrl+Shift+B** to build
+        - Or open the terminal and run:
+        ```bash
+        dotnet build -c Release -r win-x64
+        dotnet run --project Lumix/Lumix.csproj -c Release -r win-x64
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Dependencies and Libraries
+
+Lumix uses the following open-source libraries:
+
+<CardGroup cols={2}>
+  <Card title="ImGui.NET" icon="window">
+    **Version**: 1.90.8.1
+    
+    .NET wrapper for Dear ImGui - provides the entire user interface
+  </Card>
+
+  <Card title="NAudio" icon="volume">
+    **Version**: 2.2.1
+    
+    Audio playback and recording library for .NET
+  </Card>
+
+  <Card title="DryWetMidi" icon="music">
+    **Version**: 7.2.0
+    
+    MIDI file processing and playback library
+  </Card>
+
+  <Card title="VST.NET2-Host" icon="plug">
+    **Version**: 2.1.0
+    
+    VST2 plugin hosting support
+  </Card>
+</CardGroup>
+
+**Additional Dependencies:**
+- **Veldrid** (4.9.0): Cross-platform graphics library
+- **Veldrid.StartupUtilities** (4.9.0): Window and graphics initialization
+- **Veldrid.ImageSharp** (4.9.0): Image loading support
+- **Vanara.PInvoke.User32** (4.0.1): Windows API interop
+
+<Note>
+  All dependencies are automatically downloaded via NuGet during the restore phase.
+</Note>
+
+## Output Structure
+
+After a successful build, you'll find the compiled application in:
+
+```
+Lumix/Lumix/bin/
+├── Debug/
+│   └── net6.0/
+│       ├── win-x64/
+│       │   ├── Lumix.exe
+│       │   ├── cimgui.dll
+│       │   └── [dependencies]
+│       └── win-x86/
+└── Release/
+    └── net6.0/
+        ├── win-x64/
+        └── win-x86/
+```
+
+## Common Build Issues
+
+### NuGet Restore Failures
+
+**Issue**: Package restore fails or times out
+
+**Solution**:
+```bash
+dotnet nuget locals all --clear
+dotnet restore --force
+```
+
+### Platform Target Errors
+
+**Issue**: "Platform target 'AnyCPU' is not supported"
+
+**Solution**: Always specify x64 or x86:
+```bash
+dotnet build -r win-x64  # or win-x86
+```
+
+### LOCAL_DEV Constant Issues
+
+**Issue**: Application behaves differently in Debug mode
+
+**Solution**: Edit `Lumix.csproj` and remove/comment out the `LOCAL_DEV` constant definition:
+
+```xml
+<!--
+<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+  <DefineConstants>LOCAL_DEV</DefineConstants>
+</PropertyGroup>
+-->
+```
+
+### Missing cimgui.dll
+
+**Issue**: Application fails to start with "cimgui.dll not found"
+
+**Solution**: The DLL should be copied automatically. If not:
+1. Locate `cimgui.dll` in `Lumix/Resources/`
+2. Copy it to the output directory (e.g., `bin/Release/net6.0/win-x64/`)
+
+### ASIO Driver Process Won't Close
+
+**Issue**: After closing Lumix, the process remains active
+
+**Solution**: 
+- Use Task Manager to end the process manually
+- This is a known issue with ASIO4ALL driver cleanup
+- The code includes a temporary `Process.GetCurrentProcess().Kill()` workaround
+
+## Development Workflow
+
+### Running in Debug Mode
+
+<Steps>
+  <Step title="Configure Debug Build">
+    Edit `Lumix.csproj` to remove the `LOCAL_DEV` constant as described above.
+  </Step>
+
+  <Step title="Set Breakpoints">
+    In Visual Studio or your IDE, set breakpoints in the code where you want to pause execution.
+  </Step>
+
+  <Step title="Launch Debugger">
+    Press **F5** in Visual Studio or run:
+    ```bash
+    dotnet run -c Debug -r win-x64
+    ```
+  </Step>
+
+  <Step title="Access Debug View">
+    In the running application:
+    - Go to **View > Debug** in the menu
+    - Or check the debug window that appears in Debug builds
+  </Step>
+</Steps>
+
+### Testing Changes
+
+<Note>
+  The project is under active development. Pull requests are not currently accepted, but you can fork the repository for personal modifications.
+</Note>
+
+**Recommended Testing Workflow:**
+1. Make changes to the source code
+2. Build in Debug mode for testing
+3. Test with various audio/MIDI files
+4. Check VST plugin compatibility
+5. Build in Release mode for performance testing
+
+## Publishing a Build
+
+To create a distributable version of Lumix:
+
+```bash
+dotnet publish -c Release -r win-x64 --self-contained false
+```
+
+**Self-contained Build** (includes .NET runtime):
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true
+```
+
+<Warning>
+  Self-contained builds are significantly larger (~150MB+) but don't require .NET to be installed on the target system.
+</Warning>
+
+## Contributing
+
+<Note>
+  The project currently does not accept pull requests as it's still in early development stages. However, you can:
+  - Report bugs via [GitHub Issues](https://github.com/ImAxel0/Lumix/issues)
+  - Fork the repository for personal modifications
+  - Follow development progress on the [Development branch](https://github.com/ImAxel0/Lumix/tree/Development)
+</Note>
+
+## Useful Keyboard Shortcuts
+
+While testing your build:
+
+- **F11**: Toggle fullscreen
+- **Space**: Play/Stop playback
+- **Ctrl+;**: Open Preferences
+
+## Next Steps
+
+Now that you have Lumix compiled:
+
+<CardGroup cols={2}>
+  <Card title="Explore the Codebase" icon="code-branch">
+    Browse the source to understand Lumix's architecture
+  </Card>
+  <Card title="Introduction" icon="rocket" href="/introduction">
+    Learn how to use Lumix's features
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- **Source Repository**: [github.com/ImAxel0/Lumix](https://github.com/ImAxel0/Lumix)
+- **Dear ImGui**: [github.com/ocornut/imgui](https://github.com/ocornut/imgui)
+- **ImGui.NET**: [github.com/ImGuiNET/ImGui.NET](https://github.com/ImGuiNET/ImGui.NET)
+- **NAudio**: [github.com/naudio/NAudio](https://github.com/naudio/NAudio)
+- **DryWetMidi**: [github.com/melanchall/drywetmidi](https://github.com/melanchall/drywetmidi)
+- **VST.NET**: [github.com/obiwanjacobi/vst.net](https://github.com/obiwanjacobi/vst.net)

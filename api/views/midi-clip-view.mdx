@@ -1,0 +1,312 @@
+---
+title: "MidiClipView"
+description: "MIDI clip editor interface with piano roll and note manipulation tools"
+---
+
+## Overview
+
+The `MidiClipView` class is a static class that provides a detailed editor interface for MIDI clips. It includes a piano roll editor, note manipulation tools, and clip properties display.
+
+## Namespace
+
+```csharp
+Lumix.Views.Midi
+```
+
+## Enumerations
+
+### MidiClipViewTabs
+
+Defines the available tab views in the MIDI clip editor.
+
+```csharp
+public enum MidiClipViewTabs
+{
+    Notes,      // Piano roll editor for notes
+    Envelopes   // Automation envelopes (future)
+}
+```
+
+## Properties
+
+<ResponseField name="SelectedMidiClip" type="MidiClip">
+  The currently selected MIDI clip being edited.
+  
+  ```csharp
+  public static MidiClip SelectedMidiClip { get; set; }
+  ```
+</ResponseField>
+
+## Methods
+
+### Render
+
+Renders the MIDI clip editor interface with all tools and piano roll.
+
+```csharp
+public static void Render()
+```
+
+**Example:**
+```csharp
+using Lumix.Views.Midi;
+using Lumix.Clips.MidiClips;
+
+// Select a MIDI clip to edit
+MidiClipView.SelectedMidiClip = myMidiClip;
+
+// Render the editor
+MidiClipView.Render();
+```
+
+## Features
+
+### Clip Information Display
+
+The view displays the following clip properties:
+
+<ResponseField name="Start" type="MusicalTime">
+  Starting position of the clip in bars:beats:ticks format (read-only)
+</ResponseField>
+
+<ResponseField name="End" type="MusicalTime">
+  Ending position of the clip in bars:beats:ticks format (read-only)
+</ResponseField>
+
+<ResponseField name="Length" type="MusicalTime">
+  Duration of the clip in bars:beats:ticks format (read-only)
+</ResponseField>
+
+### Note Manipulation Tools
+
+The Notes tab provides several MIDI manipulation tools:
+
+#### Time Stretch
+
+```csharp
+// Divide by 2 - Makes notes twice as fast (half duration)
+MidiClipView.SelectedMidiClip.MidiClipData.MidiFile.Resize(0.5f);
+
+// Multiply by 2 - Makes notes twice as slow (double duration)
+MidiClipView.SelectedMidiClip.MidiClipData.MidiFile.Resize(2.0f);
+```
+
+#### Available Operations
+
+| Tool | Description | Status |
+|------|-------------|--------|
+| **÷2** | Halve note durations (double speed) | Implemented |
+| **×2** | Double note durations (half speed) | Implemented |
+| **Reverse** | Reverse note order | Planned |
+| **Invert** | Invert note pitches | Planned |
+| **Legato** | Extend notes to touch next note | Planned |
+| **Duplicate** | Duplicate all notes | Planned |
+
+### Velocity Control
+
+The velocity range control allows adjusting note velocities:
+
+```csharp
+// Velocity range slider (-127 to +127)
+// Adjusts the velocity of selected or all notes
+```
+
+### Piano Roll Editor
+
+The piano roll editor provides:
+
+- Visual note editing
+- Note selection and manipulation
+- Grid-based note placement
+- Velocity editing
+- Pitch visualization
+
+## Usage Examples
+
+### Opening a Clip for Editing
+
+```csharp
+using Lumix.Views.Midi;
+using Lumix.Clips.MidiClips;
+
+// Select a MIDI clip from a track
+var midiTrack = ArrangementView.Tracks.OfType<MidiTrack>().First();
+var clip = midiTrack.Clips.OfType<MidiClip>().First();
+
+// Open in editor
+MidiClipView.SelectedMidiClip = clip;
+BottomView.RenderedWindow = BottomViewWindows.MidiClipView;
+```
+
+### Time Stretching Notes
+
+```csharp
+using Lumix.Views.Midi;
+using Lumix.Clips.MidiClips;
+
+// Make clip play twice as fast
+if (MidiClipView.SelectedMidiClip != null)
+{
+    var clip = MidiClipView.SelectedMidiClip;
+    
+    // Resize MIDI data
+    clip.MidiClipData.MidiFile.Resize(0.5f);
+    
+    // Update clip with new data
+    clip.PianoRollEditor._notes = clip.MidiClipData.Notes;
+    clip.UpdateClipData(new MidiClipData(clip.PianoRollEditor.ToMidiFile()));
+}
+```
+
+### Accessing Clip Properties
+
+```csharp
+using Lumix.Views.Midi;
+
+if (MidiClipView.SelectedMidiClip != null)
+{
+    var clip = MidiClipView.SelectedMidiClip;
+    
+    // Get musical time positions
+    var start = clip.StartMusicalTime;
+    var end = clip.EndMusicalTime;
+    var length = end - start;
+    
+    Console.WriteLine($"Clip: {start.Bars}:{start.Beats}:{start.Ticks} to {end.Bars}:{end.Beats}:{end.Ticks}");
+    Console.WriteLine($"Length: {length.Bars} bars, {length.Beats} beats, {length.Ticks} ticks");
+}
+```
+
+### Working with Piano Roll
+
+```csharp
+using Lumix.Views.Midi;
+using Melanchall.DryWetMidi.Interaction;
+
+if (MidiClipView.SelectedMidiClip != null)
+{
+    var clip = MidiClipView.SelectedMidiClip;
+    var pianoRoll = clip.PianoRollEditor;
+    
+    // Access notes
+    var notes = pianoRoll._notes;
+    
+    // Get note count
+    int noteCount = notes.Count;
+    Console.WriteLine($"Clip contains {noteCount} notes");
+    
+    // After editing, update clip
+    clip.UpdateClipData(new MidiClipData(pianoRoll.ToMidiFile()));
+}
+```
+
+### Closing the Editor
+
+```csharp
+using Lumix.Views.Midi;
+
+// Close the editor and return to devices view
+MidiClipView.SelectedMidiClip = null;
+BottomView.RenderedWindow = BottomViewWindows.DevicesView;
+```
+
+## View Layout
+
+The MIDI clip view is organized into three columns:
+
+### Left Column (220px)
+- Clip start position
+- Clip end position
+- Clip length
+- Loop toggle (planned)
+
+### Middle Column (220px)
+- Tab selector (Notes/Envelopes)
+- Note manipulation tools
+- Velocity range control
+
+### Right Column (Remaining space)
+- Piano roll editor
+- Note visualization
+- Note editing interface
+
+## Integration with Other Views
+
+The MIDI clip view integrates with the bottom view system:
+
+```csharp
+// Switch to MIDI clip view
+BottomView.RenderedWindow = BottomViewWindows.MidiClipView;
+
+// The view automatically returns to DevicesView if the clip is deleted
+if (MidiClipView.SelectedMidiClip.DeleteRequested)
+{
+    MidiClipView.SelectedMidiClip = null;
+    BottomView.RenderedWindow = BottomViewWindows.DevicesView;
+}
+```
+
+## Tabs
+
+### Notes Tab
+
+The default tab providing:
+- Time stretching tools (÷2, ×2)
+- Note manipulation tools (Reverse, Invert, Legato, Duplicate)
+- Velocity range adjustment
+- Piano roll editor
+
+### Envelopes Tab
+
+Planned for future implementation:
+- Automation curves
+- CC (Control Change) editing
+- Pitch bend
+- Modulation envelopes
+
+## MIDI Data Access
+
+```csharp
+using Lumix.Views.Midi;
+using Lumix.Clips.MidiClips;
+using Melanchall.DryWetMidi.Core;
+
+if (MidiClipView.SelectedMidiClip != null)
+{
+    var clip = MidiClipView.SelectedMidiClip;
+    
+    // Access MIDI file
+    MidiFile midiFile = clip.MidiClipData.MidiFile;
+    
+    // Access notes collection
+    var notes = clip.MidiClipData.Notes;
+    
+    // Access piano roll editor
+    var editor = clip.PianoRollEditor;
+    
+    // Make changes and update
+    // ... modify notes ...
+    
+    // Update clip with new data
+    clip.UpdateClipData(new MidiClipData(editor.ToMidiFile()));
+}
+```
+
+## Keyboard Shortcuts
+
+When the MIDI clip view is active:
+
+| Shortcut | Action |
+|----------|--------|
+| `Esc` or Close button | Return to devices view |
+| Piano roll shortcuts | Handled by PianoRollEditor component |
+
+## Notes
+
+- The view automatically closes if the selected clip is deleted
+- All time stretching operations preserve MIDI note relationships
+- Changes to MIDI data require calling `UpdateClipData()` to take effect
+- The piano roll editor is rendered in the rightmost column
+- Velocity adjustments apply to selected notes or all notes if none selected
+- The Loop feature is planned for future implementation
+- The view uses ImGui columns for layout with fixed widths for left/middle columns

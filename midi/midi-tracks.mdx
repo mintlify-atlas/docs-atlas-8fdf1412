@@ -1,0 +1,210 @@
+---
+title: MIDI Tracks
+description: Learn how to work with MIDI tracks in Lumix for sequencing and instrument control
+---
+
+## Overview
+
+MIDI tracks in Lumix enable music composition and sequencing using MIDI data. They support VST instruments, MIDI event playback, and real-time recording from virtual or hardware keyboards.
+
+## Creating MIDI Tracks
+
+MIDI tracks can be created through the arrangement view. Each track has its own MIDI engine for processing MIDI events and routing them to VST instruments.
+
+```csharp
+public class MidiTrack : Track
+{
+    public override TrackType TrackType => TrackType.Midi;
+    
+    public MidiTrack(string name = "")
+    {
+        Name = name;
+        Vector4 trackCol = ImGuiTheme.GetRandomColor();
+        Color = trackCol;
+        Engine = new TrackMidiEngine(this, AudioSettings.SampleRate);
+        // ...
+    }
+}
+```
+
+## Key Features
+
+### MIDI Clip Management
+
+Create MIDI clips by double-clicking on the track timeline:
+
+```csharp
+public void CreateMidiClip(long time)
+{
+    var clip = new MidiClip(this, time);
+    Clips.Add(clip);
+}
+
+public void CreateMidiClip(TimeSelection time)
+{
+    var clip = new MidiClip(this, time);
+    Clips.Add(clip);
+}
+```
+
+### Volume Metering
+
+MIDI tracks feature real-time volume metering for monitoring output levels:
+
+```csharp
+Engine.VolumeMeasured += (sender, e) =>
+{
+    // Get the maximum peak across all channels
+    _leftChannelGain = e.MaxSampleValues[0];
+    _rightChannelGain = e.MaxSampleValues[1];
+};
+```
+
+## MIDI Engine
+
+The `TrackMidiEngine` handles MIDI event processing and VST instrument communication.
+
+### Sending MIDI Events
+
+<CodeGroup>
+```csharp Note On
+public void SendNoteOnEvent(int channel, SevenBitNumber noteNumber, SevenBitNumber velocity)
+{
+    var vstPlugin = PluginChainSampleProvider.PluginInstrument?.GetPlugin<VstPlugin>();
+    vstPlugin?.SendNoteOn(channel, noteNumber, velocity);
+}
+```
+
+```csharp Note Off
+public void SendNoteOffEvent(int channel, SevenBitNumber noteNumber, SevenBitNumber velocity)
+{
+    var vstPlugin = PluginChainSampleProvider.PluginInstrument?.GetPlugin<VstPlugin>();
+    vstPlugin?.SendNoteOff(channel, noteNumber, velocity);
+}
+```
+
+```csharp Sustain Pedal
+public void SendSustainPedalEvent(int channel, bool state)
+{
+    var vstPlugin = PluginChainSampleProvider.PluginInstrument?.GetPlugin<VstPlugin>();
+    vstPlugin?.SendSustainPedal(channel, state);
+}
+```
+</CodeGroup>
+
+### MIDI File Playback
+
+The engine supports playback of MIDI files with real-time event processing:
+
+```csharp
+public override void Fire(MidiFile midiFile, float offset, float endOffset)
+{
+    _playback?.Dispose();
+    
+    _playback = midiFile.GetPlayback();
+    _playback.TrackProgram = true;
+    _playback.TrackNotes = true;
+    _playback.TrackControlValue = true;
+    _playback.TrackPitchValue = true;
+    _playback.PlaybackStart = new MetricTimeSpan(TimeSpan.FromSeconds(offset));
+    _playback.Speed = TopBarControls.Bpm / 120f;
+    
+    // Event handling
+    _playback.EventPlayed += (sender, e) =>
+    {
+        if (e.Event is NoteOnEvent noteOn)
+        {
+            SendNoteOnEvent(0, noteOn.NoteNumber, noteOn.Velocity);
+        }
+        else if (e.Event is NoteOffEvent noteOff)
+        {
+            SendNoteOffEvent(0, noteOff.NoteNumber, noteOff.Velocity);
+        }
+        else if (e.Event is ControlChangeEvent ccEvent)
+        {
+            // Handle CC events (sustain, volume, etc.)
+        }
+    };
+    
+    _playback.Start();
+}
+```
+
+## Supported MIDI Events
+
+<AccordionGroup>
+  <Accordion title="Note Events">
+    - **Note On**: Triggers when a note starts playing
+    - **Note Off**: Triggers when a note stops playing
+    - Includes velocity information (0-127)
+  </Accordion>
+  
+  <Accordion title="Control Change (CC) Events">
+    - **CC 64**: Sustain pedal on/off
+    - **CC 7**: Volume control
+    - **CC 10**: Pan control
+    - Other CC messages for modulation, expression, etc.
+  </Accordion>
+  
+  <Accordion title="Program Change">
+    - Switch between instrument patches
+    - Tracked automatically during playback
+  </Accordion>
+  
+  <Accordion title="Pitch Bend">
+    - Smooth pitch modulation
+    - Tracked in real-time during playback
+  </Accordion>
+</AccordionGroup>
+
+## Integration with VST Instruments
+
+MIDI tracks seamlessly integrate with VST instruments through the plugin chain:
+
+```csharp
+PluginChainSampleProvider = new PluginChainSampleProvider(Mixer);
+```
+
+The plugin chain processes MIDI events and generates audio output, which is then routed through the track's effects chain and mixer.
+
+## Track Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `TrackType` | `TrackType` | Always `TrackType.Midi` for MIDI tracks |
+| `Engine` | `TrackMidiEngine` | MIDI processing engine |
+| `Clips` | `List<Clip>` | Collection of MIDI clips on this track |
+| `Color` | `Vector4` | Track color for visual identification |
+| `Enabled` | `bool` | Whether the track is active |
+| `RecordOnStart` | `bool` | Enable recording from virtual keyboard |
+
+<Note>
+MIDI tracks require at least one VST instrument to produce sound. Add a VST instrument from the plugin browser to start making music.
+</Note>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Organize Your Tracks" icon="layer-group">
+    Use descriptive names and colors to keep your project organized as you add more MIDI tracks.
+  </Card>
+  
+  <Card title="Monitor Levels" icon="volume-high">
+    Watch the track meters to avoid clipping and maintain proper gain staging.
+  </Card>
+  
+  <Card title="Use Automation" icon="chart-line">
+    Automate MIDI CC parameters for dynamic, expressive performances.
+  </Card>
+  
+  <Card title="Bounce to Audio" icon="file-audio">
+    Render MIDI tracks to audio to save CPU when using heavy VST instruments.
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [MIDI Clips](/midi/midi-clips) - Working with MIDI clip data
+- [Piano Roll](/midi/piano-roll) - Editing MIDI notes visually
+- [Virtual Keyboard](/midi/virtual-keyboard) - Recording MIDI with your computer keyboard
+- [VST Plugins](/plugins/vst-plugins) - Loading and using VST instruments

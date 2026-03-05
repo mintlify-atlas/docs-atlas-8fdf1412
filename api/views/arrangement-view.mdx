@@ -1,0 +1,269 @@
+---
+title: "ArrangementView"
+description: "Main arrangement view class that manages tracks, clips, and the timeline interface"
+---
+
+## Overview
+
+The `ArrangementView` class is a static class that manages the main arrangement view in Lumix. It handles track management, clip selection, zoom controls, and rendering of the arrangement interface.
+
+## Namespace
+
+```csharp
+Lumix.Views.Arrangement
+```
+
+## Properties
+
+<ResponseField name="MasterTrack" type="MasterTrack" required>
+  The master track for the arrangement. Contains master audio output and effects.
+  
+  ```csharp
+  public static MasterTrack MasterTrack { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Tracks" type="List<Track>" required>
+  List of all tracks in the arrangement. Read-only access to the tracks collection.
+  
+  ```csharp
+  public static List<Track> Tracks { get; private set; }
+  ```
+</ResponseField>
+
+<ResponseField name="BeatsPerBar" type="float">
+  Current beats per bar setting for the arrangement grid. Read-only property.
+  
+  ```csharp
+  public static float BeatsPerBar { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="Zoom" type="float">
+  Current zoom level of the arrangement view. Value is clamped between 0.05 and 2.0.
+  
+  ```csharp
+  public static float Zoom { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="SelectedClips" type="List<Clip>">
+  List of currently selected clips in the arrangement.
+  
+  ```csharp
+  public static List<Clip> SelectedClips { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="WindowPos" type="Vector2">
+  Position of the arrangement window in screen coordinates.
+  
+  ```csharp
+  public static Vector2 WindowPos { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="ArrangementScrollX" type="float">
+  Horizontal scroll position of the arrangement view.
+  
+  ```csharp
+  public static float ArrangementScrollX { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="ArrangementWidth" type="float">
+  Width of the visible arrangement area.
+  
+  ```csharp
+  public static float ArrangementWidth { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="MaxClipLength" type="float">
+  Length of the longest clip in the arrangement, in pixels.
+  
+  ```csharp
+  public static float MaxClipLength { get; }
+  ```
+</ResponseField>
+
+## Methods
+
+### Init
+
+Initializes the arrangement view with default tracks.
+
+```csharp
+public static void Init()
+```
+
+**Example:**
+```csharp
+ArrangementView.Init();
+// Creates 5 audio tracks and 5 MIDI tracks with default names
+```
+
+### NewAudioTrack
+
+Creates a new audio track and adds it to the arrangement.
+
+```csharp
+public static AudioTrack NewAudioTrack(string name, int index = -1)
+```
+
+<ParamField path="name" type="string" required>
+  Name of the new audio track
+</ParamField>
+
+<ParamField path="index" type="int" default="-1">
+  Position to insert the track. If -1, adds to the end of the track list.
+</ParamField>
+
+**Returns:** The newly created `AudioTrack`
+
+**Example:**
+```csharp
+// Add track at the end
+var track = ArrangementView.NewAudioTrack("My Audio Track");
+
+// Insert track at specific position
+var insertedTrack = ArrangementView.NewAudioTrack("Inserted Track", 2);
+```
+
+### NewMidiTrack
+
+Creates a new MIDI track and adds it to the arrangement.
+
+```csharp
+public static MidiTrack NewMidiTrack(string name, int index = -1)
+```
+
+<ParamField path="name" type="string" required>
+  Name of the new MIDI track
+</ParamField>
+
+<ParamField path="index" type="int" default="-1">
+  Position to insert the track. If -1, adds to the end of the track list.
+</ParamField>
+
+**Returns:** The newly created `MidiTrack`
+
+**Example:**
+```csharp
+// Add MIDI track at the end
+var midiTrack = ArrangementView.NewMidiTrack("Synth Lead");
+
+// Insert MIDI track after selected track
+int selectedIndex = ArrangementView.Tracks.IndexOf(DevicesView.SelectedTrack);
+var newTrack = ArrangementView.NewMidiTrack("Bass", selectedIndex + 1);
+```
+
+### ZoomChange
+
+Changes the zoom level of the arrangement view with smooth interpolation.
+
+```csharp
+public static void ZoomChange(float value)
+```
+
+<ParamField path="value" type="float" required>
+  Zoom delta. Positive values zoom in, negative values zoom out.
+</ParamField>
+
+**Example:**
+```csharp
+// Zoom in
+ArrangementView.ZoomChange(1.0f);
+
+// Zoom out
+ArrangementView.ZoomChange(-1.0f);
+```
+
+### NewZoomChange
+
+Alternative zoom implementation with fixed increments and centered mouse behavior.
+
+```csharp
+public static void NewZoomChange(float value)
+```
+
+<ParamField path="value" type="float" required>
+  Zoom direction. Positive values zoom in by 0.1, negative values zoom out by 0.1.
+</ParamField>
+
+**Example:**
+```csharp
+// Handle mouse wheel zoom
+if (ImGui.IsKeyDown(ImGuiKey.ModCtrl))
+{
+    float scrollDelta = ImGui.GetIO().MouseWheel;
+    if (scrollDelta != 0)
+    {
+        ArrangementView.NewZoomChange(scrollDelta);
+    }
+}
+```
+
+### Render
+
+Renders the arrangement view and handles all user interactions.
+
+```csharp
+public static void Render()
+```
+
+**Example:**
+```csharp
+// In your main render loop
+ArrangementView.Render();
+```
+
+## Keyboard Shortcuts
+
+The ArrangementView responds to the following keyboard shortcuts:
+
+| Shortcut | Action |
+|----------|--------|
+| `Delete` | Delete selected clips |
+| `Ctrl+D` | Duplicate selected clips |
+| `0` | Toggle enable/disable for selected clips |
+| `Right Arrow` (hold) | Move selected clips forward by one grid unit |
+| `Left Arrow` (hold) | Move selected clips backward by one grid unit |
+| `Ctrl+T` | Create new audio track after selected track |
+| `Ctrl+Shift+T` | Create new MIDI track after selected track |
+| `Ctrl+Scroll` | Zoom in/out |
+| `Middle Mouse` | Pan view |
+
+## Usage Example
+
+```csharp
+using Lumix.Views.Arrangement;
+using Lumix.Tracks.AudioTracks;
+using Lumix.Clips.AudioClips;
+
+// Initialize the arrangement
+ArrangementView.Init();
+
+// Create a custom audio track
+var guitarTrack = ArrangementView.NewAudioTrack("Guitar");
+
+// Create a MIDI track for drums
+var drumTrack = ArrangementView.NewMidiTrack("Drums");
+
+// Select multiple clips
+ArrangementView.SelectedClips.AddRange(guitarTrack.Clips.Take(3));
+
+// Adjust zoom level
+ArrangementView.ZoomChange(0.5f);
+
+// Render the view
+ArrangementView.Render();
+```
+
+## Notes
+
+- The arrangement view automatically handles waveform resizing when zooming
+- Clips can be selected by clicking or using Ctrl+Click for multi-selection
+- The view supports grid snapping based on the `BeatsPerBar` setting
+- Timeline position can be changed by clicking in the arrangement area
+- All track rendering is handled internally by the `Render()` method

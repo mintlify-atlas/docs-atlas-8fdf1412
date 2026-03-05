@@ -1,0 +1,399 @@
+---
+title: Timeline & Arrangement
+description: Understanding time management and playback in Lumix DAW
+---
+
+The timeline system in Lumix (`TimeLineV2`) provides precise time management, musical time conversion, and playback control for your project.
+
+## Timeline Constants
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public const int PPQ = 960;
+public static float BeatsPerBar { get; set; } = 4; // Default 4/4 time signature
+public static float PixelsPerTick => 0.05f * ArrangementView.Zoom;
+```
+
+<Info>
+  **PPQ** (Pulses Per Quarter note) defines the timeline's resolution. Lumix uses **960 PPQ** for high-precision timing, allowing for accurate representation of musical subdivisions.
+</Info>
+
+## Playback Control
+
+The timeline manages playback state and timing:
+
+### Starting Playback
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+private static Stopwatch _stopwatch = new();
+private static long _currentTick;
+private static long _lastTickStart;
+
+public static void StartPlayback()
+{
+    _stopwatch.Start();
+    _lastTickStart = _currentTick;
+}
+```
+
+### Stopping Playback
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static void StopPlayback(bool moveToStart = false)
+{
+    _stopwatch.Stop();
+    _currentTick = _lastTickStart;
+    if (moveToStart)
+    {
+        _lastTickStart = 0;
+        _stopwatch.Reset();
+    }
+
+    AudioPreviewEngine.Instance.StopSound();
+    MidiPreviewEngine.StopPreview();
+    foreach (var track in ArrangementView.Tracks)
+    {
+        track.Engine.StopSounds();
+        foreach (var clip in track.Clips)
+        {
+            clip.HasPlayed = false;
+        }
+
+        if (track.Engine.IsRecording)
+        {
+            track.Engine.StopRecording(track);
+        }
+    }
+}
+```
+
+<Steps>
+  <Step title="Stop Playback">
+    When stopping, the timeline returns to the position where playback started
+  </Step>
+  <Step title="Reset Clips">
+    All clips' `HasPlayed` flags are reset for the next playback cycle
+  </Step>
+  <Step title="Stop Recording">
+    Any active recordings are automatically stopped
+  </Step>
+  <Step title="Clean Up">
+    Audio and MIDI preview engines are stopped
+  </Step>
+</Steps>
+
+### Checking Playback State
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static bool IsPlaying()
+{
+    return _stopwatch.IsRunning;
+}
+```
+
+### Updating Playback Position
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static void UpdatePlayback()
+{
+    if (_stopwatch.IsRunning)
+    {
+        double elapsedSeconds = _stopwatch.Elapsed.TotalSeconds;
+        long elapsedTicks = SecondsToTicks(elapsedSeconds);
+        _currentTick += elapsedTicks;
+
+        // Reset stopwatch to avoid accumulating elapsed time
+        _stopwatch.Restart();
+    }
+}
+```
+
+This method should be called every frame to update the playback position.
+
+## Time Position Management
+
+### Getting Current Position
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static long GetCurrentTick()
+{
+    return _currentTick;
+}
+
+public static long GetLastTickStart()
+{ 
+    return _lastTickStart; 
+}
+```
+
+### Setting Position
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static void SetCurrentTick(long ticks)
+{
+    _currentTick = ticks;
+}
+
+public static void SetLastTickSart(long ticks)
+{
+    _lastTickStart = ticks;
+}
+```
+
+## Time Conversion Functions
+
+### Ticks to Seconds
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static double TicksToSeconds(long ticks, bool useTempo = true)
+{
+    if (!useTempo)
+    {
+        return ticks * (60.0 / (120.0 * PPQ));
+    }
+    return ticks * (60.0 / (TopBarControls.Bpm * PPQ));
+}
+```
+
+<Note>
+  When `useTempo` is false, the conversion uses a fixed tempo of 120 BPM for tempo-independent calculations.
+</Note>
+
+### Seconds to Ticks
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static long SecondsToTicks(double seconds, bool useTempo = true)
+{
+    if (!useTempo)
+    {
+        return (long)Math.Round(seconds * (120.0 * PPQ) / 60.0);
+    }
+    return (long)Math.Round(seconds * (TopBarControls.Bpm * PPQ) / 60.0);
+}
+```
+
+## Musical Time Conversion
+
+### Ticks to Musical Time (Bars:Beats:Ticks)
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static MusicalTime TicksToMusicalTime(long ticks, bool applyOffset = false)
+{
+    // Ticks per bar and beat
+    int ticksPerBar = 4 * PPQ; // not sure 4 is right
+    int ticksPerBeat = PPQ;
+
+    // Calculate bars
+    int bars = (int)(ticks / ticksPerBar);
+    long remainingTicksAfterBars = ticks % ticksPerBar;
+
+    // Calculate beats
+    int beats = (int)(remainingTicksAfterBars / ticksPerBeat);
+    long remainingTicksAfterBeats = remainingTicksAfterBars % ticksPerBeat;
+
+    // Remaining ticks
+    int ticksRemainder = (int)remainingTicksAfterBeats;
+
+    if (applyOffset)
+    {
+        // Offset bars, beats, and ticks to start at 1:1:1
+        return new MusicalTime(bars + 1, beats + 1, ticksRemainder + 1);
+    }
+    return new MusicalTime(bars, beats, ticksRemainder);
+}
+```
+
+<Info>
+  The `applyOffset` parameter converts between **zero-based** (0:0:0) and **one-based** (1:1:1) musical time representations. Use `true` for user-facing displays.
+</Info>
+
+### Musical Time to Ticks
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static long MusicalTimeToTicks(MusicalTime musicalTime, bool applyOffset = false)
+{
+    int ticksPerBar = 4 * PPQ; // not sure 4 is right
+    int ticksPerBeat = PPQ;
+
+    if (applyOffset)
+    {
+        // Subtract 1 to match the offset logic
+        return ((musicalTime.Bars - 1) * ticksPerBar) + ((musicalTime.Beats - 1) * ticksPerBeat) + (musicalTime.Ticks - 1);
+    }
+    return ((musicalTime.Bars) * ticksPerBar) + ((musicalTime.Beats) * ticksPerBeat) + (musicalTime.Ticks);
+}
+```
+
+## Position Conversion
+
+### Time to Pixel Position
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static float TimeToPosition(long ticks)
+{
+    return ticks * PixelsPerTick;
+}
+```
+
+### Position to Time
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static long PositionToTime(float x)
+{
+    return (long)(x / PixelsPerTick);
+}
+```
+
+### Ticks to Pixels
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static float TicksToPixels(long ticks)
+{
+    return ticks * PixelsPerTick;
+}
+```
+
+### Musical Time to Pixels
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static float MusicalTimeToPixels(MusicalTime musicalTime)
+{
+    return MusicalTimeToTicks(musicalTime) * PixelsPerTick;
+}
+```
+
+## Grid Snapping
+
+The timeline provides grid snapping for precise alignment:
+
+```csharp Lumix/Views/Arrangement/TimeLineV2.cs
+public static long SnapToGrid(long tick)
+{
+    long gridSpacing = (long)(TimeLineV2.PPQ * TimeLineV2.BeatsPerBar);
+    return (long)Math.Round((double)tick / gridSpacing) * gridSpacing;
+}
+```
+
+<Note>
+  Grid snapping defaults to bar boundaries. The grid spacing is calculated as `PPQ × BeatsPerBar`.
+</Note>
+
+## Usage Examples
+
+### Converting Between Formats
+
+```csharp
+// Convert 2 seconds to ticks at current tempo
+long ticks = TimeLineV2.SecondsToTicks(2.0);
+
+// Convert ticks to musical time for display
+MusicalTime musicalTime = TimeLineV2.TicksToMusicalTime(ticks, applyOffset: true);
+Console.WriteLine($"{musicalTime.Bars}:{musicalTime.Beats}:{musicalTime.Ticks}");
+
+// Convert musical time back to ticks
+long ticksAgain = TimeLineV2.MusicalTimeToTicks(musicalTime, applyOffset: true);
+
+// Get seconds duration
+double seconds = TimeLineV2.TicksToSeconds(ticksAgain);
+```
+
+### Positioning Clips
+
+```csharp
+// Get mouse position in pixels
+float mouseX = ImGui.GetMousePos().X - ArrangementView.WindowPos.X;
+
+// Convert to time
+long timeAtMouse = TimeLineV2.PositionToTime(mouseX);
+
+// Snap to grid
+long snappedTime = TimeLineV2.SnapToGrid(timeAtMouse);
+
+// Set clip start time
+clip.SetStartTick(snappedTime);
+```
+
+### Playback Position Display
+
+```csharp
+if (TimeLineV2.IsPlaying())
+{
+    long currentTick = TimeLineV2.GetCurrentTick();
+    MusicalTime position = TimeLineV2.TicksToMusicalTime(currentTick, applyOffset: true);
+    double seconds = TimeLineV2.TicksToSeconds(currentTick);
+    
+    Console.WriteLine($"Position: {position.Bars}:{position.Beats}:{position.Ticks} ({seconds:F2}s)");
+}
+```
+
+## Time Selection
+
+Tracks support time-based selection areas:
+
+```csharp Lumix/Tracks/Track.cs
+// Selection area dragging
+if (ImGui.IsMouseClicked(ImGuiMouseButton.Left) && TrackHasCursor && !Clips.Any(clip => clip.MenuBarIsHovered)
+    && !ImGui.IsKeyDown(ImGuiKey.ModCtrl) && !ImGui.IsKeyDown(ImGuiKey.ModAlt))
+{
+    TimeSelectionArea.SetStart(TimeLineV2.TicksToMusicalTime(TimeLineV2.SnapToGrid(TimeLineV2.PositionToTime(ImGui.GetMousePos().X + ArrangementView.ArrangementScroolX - ArrangementView.WindowPos.X)), true));
+    TimeSelectionArea.SetEnd(TimeSelectionArea.Start);
+    _lastTickSelection = TimeLineV2.SnapToGrid(TimeLineV2.PositionToTime(ImGui.GetMousePos().X + ArrangementView.ArrangementScroolX - ArrangementView.WindowPos.X));
+    IsAreaSelectionMode = true;
+}
+```
+
+## Grid Lines Rendering
+
+The arrangement view renders grid lines based on the timeline:
+
+```csharp Lumix/Tracks/Track.cs
+private void RenderGridLines(float viewportWidth, float trackHeight)
+{
+    long startTick = TimeLineV2.PositionToTime(ArrangementView.ArrangementScroolX);
+    long endTick = TimeLineV2.PositionToTime(ArrangementView.ArrangementScroolX + viewportWidth);
+
+    float pixelsPerTick = TimeLineV2.PixelsPerTick;
+    long beatSpacing = TimeLineV2.PPQ;
+    long barSpacing = (long)(beatSpacing * TimeLineV2.BeatsPerBar);
+
+    long gridSpacing = barSpacing;
+
+    for (long tick = (startTick / gridSpacing) * gridSpacing; tick <= endTick; tick += gridSpacing)
+    {
+        float xPosition = TimeLineV2.TimeToPosition(tick) - ArrangementView.ArrangementScroolX;
+
+        if (tick % barSpacing == 0)
+            DrawGridLine(ArrangementView.WindowPos.X + xPosition, new Vector4(0f, 0f, 0f, 0.3f), thickness: 1); // Bar line
+        else if (gridSpacing == barSpacing) 
+            DrawGridLine(ArrangementView.WindowPos.X + xPosition, new Vector4(1, 0, 0, 0.5f), thickness: 1); // Beat line
+    }
+}
+```
+
+Grid lines are drawn at bar boundaries with darker lines, providing visual reference points.
+
+## Performance Considerations
+
+<Info>
+  The timeline system uses a `Stopwatch` for high-precision timing and converts elapsed time to ticks on each frame update. This ensures accurate playback without drift.
+</Info>
+
+### Zoom and Display
+
+The `PixelsPerTick` property is zoom-dependent:
+
+```csharp
+public static float PixelsPerTick => 0.05f * ArrangementView.Zoom;
+```
+
+As the user zooms in or out, the pixel-to-tick conversion adjusts automatically, maintaining consistent visual representation.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Musical Time" href="/core-concepts/musical-time" icon="clock">
+    Deep dive into the Bars:Beats:Ticks format
+  </Card>
+  <Card title="Tracks" href="/core-concepts/tracks" icon="bars">
+    Learn about track management
+  </Card>
+</CardGroup>

@@ -1,0 +1,122 @@
+---
+title: "Introduction"
+description: "Welcome to Lumix - A modern .NET Digital Audio Workstation"
+---
+
+<img
+  className="block dark:hidden"
+  src="https://media.brand.dev/6b5a5f85-641e-4caf-a6aa-2f38020664ef.png"
+  alt="Lumix Logo"
+  style={{ width: '150px', height: '150px', margin: '0 auto' }}
+/>
+<img
+  className="hidden dark:block"
+  src="https://media.brand.dev/6b5a5f85-641e-4caf-a6aa-2f38020664ef.png"
+  alt="Lumix Logo"
+  style={{ width: '150px', height: '150px', margin: '0 auto' }}
+/>
+
+# Welcome to Lumix
+
+Lumix is a .NET Digital Audio Workstation (DAW) currently under development, featuring an Ableton Live-inspired UI and workflow. Built with C# and modern audio processing libraries, Lumix provides a powerful platform for music production and audio manipulation.
+
+<Note>
+  Lumix is currently under active development. Some features are still in progress or partially implemented. See the [GitHub repository](https://github.com/ImAxel0/Lumix) for the latest updates.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Multi-Track Audio & MIDI" icon="waveform" iconType="duotone">
+    Support for audio and MIDI tracks with real-time playback, recording, and rendering capabilities
+  </Card>
+  <Card title="VST2 Plugin Support" icon="puzzle-piece" iconType="duotone">
+    Host VST2 plugins including instruments and effects with full plugin chain management
+  </Card>
+  <Card title="Piano Roll Editor" icon="piano-keyboard" iconType="duotone">
+    Built-in MIDI editor with note placement, editing, and visualization
+  </Card>
+  <Card title="Professional Workflow" icon="sliders" iconType="duotone">
+    Grid snapping, zoom controls, timeline-based arrangement, and real-time waveform visualization
+  </Card>
+</CardGroup>
+
+## Quick Links
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get Lumix up and running on your system
+  </Card>
+  <Card title="Building from Source" icon="hammer" href="/building-from-source">
+    Compile Lumix from the source code
+  </Card>
+  <Card title="Core Concepts" icon="book-open" href="/core-concepts/tracks">
+    Understand the fundamental concepts of Lumix
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/core/track">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>
+
+## What Makes Lumix Unique?
+
+Lumix is built entirely with C# and .NET 6, leveraging powerful open-source libraries:
+
+- **ImGui.NET** for the entire user interface, providing a highly responsive and customizable DAW environment
+- **NAudio** for audio processing and playback
+- **DryWetMidi** for comprehensive MIDI file handling
+- **VST.NET** for VST2 plugin hosting
+
+This modern tech stack enables:
+- Fast, real-time audio processing
+- Low-latency performance
+- Cross-platform compatibility (Windows, with potential for Linux/macOS)
+- Full plugin chain support with built-in and VST2 effects
+
+## Development Status
+
+<Warning>
+  The source is provided as-is. If compiling it, expect crashes, unfinished features, and breaking changes. For the latest commits, check the [Development branch](https://github.com/ImAxel0/Lumix/tree/Development).
+</Warning>
+
+### Currently Working
+
+- Audio and MIDI file playback
+- Track rendering and common controls
+- Clip rendering and basic controls
+- Built-in plugins support
+- VST2 plugins support
+- Plugin chain management
+- Computer keyboard MIDI events
+- Arrangement zoom and grid snapping
+- Files sound/waveform preview
+- Help info box
+
+### Partially Implemented
+
+- Volume meters
+- Metronome UI
+- Piano roll (placement, deletion, basic editing)
+- Track and plugin index swapping
+- Track area selection
+
+### Planned Features
+
+- Audio clip editing view
+- Audio clips warping
+- Plugin and track grouping
+- Parameter automations
+- Project saving, loading, and export
+
+## Community & Support
+
+Lumix is an open-source project showcasing progress on a modern DAW. While pull requests are not currently accepted as the project is still in early development, you can:
+
+- Star the repository on [GitHub](https://github.com/ImAxel0/Lumix)
+- Follow development updates
+- Report issues and bugs
+- Provide feedback and suggestions
+
+<Card title="View on GitHub" icon="github" href="https://github.com/ImAxel0/Lumix">
+  Check out the source code and latest developments
+</Card>

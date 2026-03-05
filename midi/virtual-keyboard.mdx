@@ -1,0 +1,398 @@
+---
+title: Virtual Keyboard
+description: Record MIDI notes using your computer keyboard with Lumix's virtual keyboard system
+---
+
+## Overview
+
+The virtual keyboard allows you to play and record MIDI notes using your computer's QWERTY keyboard. It's perfect for quick melody sketches, testing sounds, or recording when you don't have a MIDI controller available.
+
+## Enabling the Virtual Keyboard
+
+The virtual keyboard is enabled by default. Toggle it on/off programmatically:
+
+```csharp
+public static class VirtualKeyboard
+{
+    private static bool _enabled = true;
+    public static bool Enabled => _enabled;
+    
+    public static void Toggle()
+    {
+        _enabled = !_enabled;
+    }
+}
+```
+
+<Note>
+The virtual keyboard only sends MIDI to tracks with **Record Enabled** active. Enable recording on your target MIDI track before playing.
+</Note>
+
+## Keyboard Layout
+
+The virtual keyboard uses a two-row piano layout:
+
+### Key Mapping
+
+<Tabs>
+  <Tab title="White Keys">
+    ```
+    A  S  D  F  G  H  J  K
+    C  D  E  F  G  A  B  C
+    ```
+    
+    These keys represent the white keys on a piano (natural notes).
+  </Tab>
+  
+  <Tab title="Black Keys">
+    ```
+    W  E     T  Y  U
+    C# D#    F# G# A#
+    ```
+    
+    These keys represent the black keys on a piano (sharps/flats).
+  </Tab>
+</Tabs>
+
+### Complete Mapping
+
+```csharp
+private static readonly Dictionary<ImGuiKey, int> _keyNoteMap = new()
+{
+    { ImGuiKey.A, 60 }, // C4 (Middle C)
+    { ImGuiKey.W, 61 }, // C#4
+    { ImGuiKey.S, 62 }, // D4
+    { ImGuiKey.E, 63 }, // D#4
+    { ImGuiKey.D, 64 }, // E4
+    { ImGuiKey.F, 65 }, // F4
+    { ImGuiKey.T, 66 }, // F#4
+    { ImGuiKey.G, 67 }, // G4
+    { ImGuiKey.Y, 68 }, // G#4
+    { ImGuiKey.H, 69 }, // A4
+    { ImGuiKey.U, 70 }, // A#4
+    { ImGuiKey.J, 71 }, // B4
+    { ImGuiKey.K, 72 }, // C5
+};
+```
+
+By default, the keyboard is centered on **C4 (Middle C)** = MIDI note 60.
+
+## Control Keys
+
+### Octave Shifting
+
+<CardGroup cols={2}>
+  <Card title="Z Key" icon="arrow-down">
+    Shift down by one octave (-12 semitones)
+  </Card>
+  
+  <Card title="X Key" icon="arrow-up">
+    Shift up by one octave (+12 semitones)
+  </Card>
+</CardGroup>
+
+```csharp
+private static void ShiftOctave(int amount)
+{
+    _octaveShift += amount;
+    _octaveShift = Math.Clamp(_octaveShift, -36, 36);
+    InfoBox.SetInfoData("Octave adjusted", $"Octave shift: {_octaveShift}", true);
+}
+
+if (ev.Key == Key.Z)
+    ShiftOctave(-12);
+
+if (ev.Key == Key.X)
+    ShiftOctave(+12);
+```
+
+**Range**: ±3 octaves (-36 to +36 semitones)
+
+### Velocity Control
+
+<CardGroup cols={2}>
+  <Card title="C Key" icon="minus">
+    Decrease velocity by 10
+  </Card>
+  
+  <Card title="V Key" icon="plus">
+    Increase velocity by 10
+  </Card>
+</CardGroup>
+
+```csharp
+private static void ShiftVelocity(int amount)
+{
+    _velocity += amount;
+    _velocity = Math.Clamp(_velocity, 7, 127);
+    InfoBox.SetInfoData("Velocity adjusted", $"Velocity: {_velocity}", true);
+}
+
+if (ev.Key == Key.C)
+    ShiftVelocity(-10);
+
+if (ev.Key == Key.V)
+    ShiftVelocity(+10);
+```
+
+**Range**: 7-127 (MIDI velocity standard)
+**Default**: 100
+
+### Playback Control
+
+**Spacebar**: Start/stop playback
+
+```csharp
+if (ev.Key == Key.Space)
+{
+    if (TimeLineV2.IsPlaying())
+        TimeLineV2.StopPlayback();
+    else
+        TimeLineV2.StartPlayback();
+}
+```
+
+## Playing Notes
+
+The virtual keyboard listens for key presses and sends MIDI events to record-enabled tracks:
+
+```csharp
+public static void ListenForKeyPresses()
+{
+    foreach (var key in _keyNoteMap.Keys)
+    {
+        if (ImGui.IsKeyPressed(key, false))
+        {
+            ArrangementView.Tracks.ForEach(track =>
+            {
+                if (track.RecordOnStart && track.Engine is TrackMidiEngine midiEngine)
+                {
+                    midiEngine.SendNoteOnEvent(0,
+                        new SevenBitNumber((byte)(_keyNoteMap[key] + _octaveShift)),
+                        new SevenBitNumber((byte)_velocity));
+                }
+            });
+            _isKeyDown = true;
+        }
+        
+        if (ImGui.IsKeyReleased(key))
+        {
+            ArrangementView.Tracks.ForEach(track =>
+            {
+                if (track.RecordOnStart && track.Engine is TrackMidiEngine midiEngine)
+                {
+                    midiEngine.SendNoteOffEvent(0,
+                        new SevenBitNumber((byte)(_keyNoteMap[key] + _octaveShift)),
+                        new SevenBitNumber(0));
+                }
+            });
+            _isKeyDown = false;
+        }
+    }
+}
+```
+
+## Multi-Track Recording
+
+The virtual keyboard can send MIDI to multiple tracks simultaneously:
+
+```csharp
+ArrangementView.Tracks.ForEach(track =>
+{
+    if (track.RecordOnStart && track.Engine is TrackMidiEngine midiEngine)
+    {
+        midiEngine.SendNoteOnEvent(0,
+            new SevenBitNumber((byte)(_veldridKeyNoteMap[ev.Key] + _octaveShift)),
+            new SevenBitNumber((byte)_velocity));
+    }
+});
+```
+
+<Tip>
+Enable recording on multiple MIDI tracks to layer different instruments simultaneously, like playing bass and chords together.
+</Tip>
+
+## Input System Integration
+
+Lumix uses two input systems for keyboard detection:
+
+### ImGui Input (UI Context)
+
+```csharp
+if (ImGui.IsKeyPressed(key, false))
+{
+    // Handle key press
+}
+
+if (ImGui.IsKeyReleased(key))
+{
+    // Handle key release
+}
+```
+
+### Veldrid Input (Global Context)
+
+```csharp
+public static void KeyDownFromPlugin(KeyEvent ev)
+{
+    if (ev.Repeat)
+        return; // Ignore key repeats
+    
+    if (!_enabled)
+        return;
+    
+    if (_veldridKeyNoteMap.ContainsKey(ev.Key))
+    {
+        // Send MIDI note on
+    }
+}
+
+public static void KeyUpFromPlugin(KeyEvent ev)
+{
+    if (!_enabled)
+        return;
+    
+    if (_veldridKeyNoteMap.ContainsKey(ev.Key))
+    {
+        // Send MIDI note off
+    }
+}
+```
+
+<Warning>
+Key repeat events are ignored to prevent retriggering notes. Only the initial key press sends a MIDI note on event.
+</Warning>
+
+## Recording Workflow
+
+### Step-by-Step
+
+1. **Create a MIDI track**
+   - Add a new MIDI track to your project
+   - Load a VST instrument for sound
+
+2. **Enable recording**
+   - Click the record button on the track header
+   - The track must have `RecordOnStart` enabled
+
+3. **Set up your keyboard**
+   - Adjust octave with Z/X keys
+   - Set desired velocity with C/V keys
+
+4. **Start recording**
+   - Press spacebar to start playback
+   - Play notes on your keyboard
+   - Notes are recorded in real-time
+
+5. **Stop and review**
+   - Press spacebar again to stop
+   - Review and edit in the piano roll
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Latency Compensation">
+    If you experience latency between key presses and sound, adjust your audio buffer size in the audio settings. Smaller buffers reduce latency but require more CPU.
+  </Accordion>
+  
+  <Accordion title="Velocity Dynamics">
+    Since keyboard keys don't have velocity sensitivity, set velocity before recording:
+    - **Soft passages**: 40-70
+    - **Medium dynamics**: 80-100
+    - **Loud sections**: 110-127
+    
+    You can always adjust velocity in the piano roll after recording.
+  </Accordion>
+  
+  <Accordion title="Octave Management">
+    Remember your current octave shift! The info box displays the current offset when you change octaves. Reset to 0 by pressing Z or X until the display shows "Octave shift: 0".
+  </Accordion>
+  
+  <Accordion title="Avoiding Stuck Notes">
+    If notes get stuck (continue playing after release):
+    - Click outside the application window to release all keys
+    - The virtual keyboard automatically sends note-off events when the mouse is released
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### State Tracking
+
+The virtual keyboard tracks whether any key is currently pressed:
+
+```csharp
+private static bool _isKeyDown;
+
+if (ImGui.IsKeyPressed(ImGuiKey.Z, false) && !_isKeyDown)
+{
+    ShiftOctave(-12);
+}
+```
+
+This prevents octave changes during note playback, which would cause pitch jumps.
+
+### Automatic Note-Off
+
+Notes are automatically released when focus is lost:
+
+```csharp
+if (ImGui.IsMouseReleased(ImGuiMouseButton.Left) && !TimeLineV2.IsPlaying())
+{
+    var vstPlugin = _midiTrack.Engine.PluginChainSampleProvider.PluginInstrument?.GetPlugin<VstPlugin>();
+    vstPlugin?.SendNoteOff(0, _lastSentNoteNum, 0);
+}
+```
+
+## Keyboard Shortcuts Reference
+
+| Key | Function | Note |
+|-----|----------|------|
+| **A-K** | Play notes | White and black keys |
+| **W, E, T, Y, U** | Sharp notes | Black keys |
+| **Z** | Octave down | -12 semitones |
+| **X** | Octave up | +12 semitones |
+| **C** | Velocity down | -10 per press |
+| **V** | Velocity up | +10 per press |
+| **Space** | Play/stop | Toggle playback |
+
+<Note>
+Control keys (Z, X, C, V) only work when no musical notes are being held down.
+</Note>
+
+## Troubleshooting
+
+### No Sound When Playing
+
+1. Check that the virtual keyboard is enabled
+2. Verify record is enabled on at least one MIDI track
+3. Ensure the track has a VST instrument loaded
+4. Check track volume and mute status
+
+### Keys Not Responding
+
+1. Make sure the Lumix window has focus
+2. Check if another application is capturing keyboard input
+3. Verify the virtual keyboard is not disabled
+
+### Octave Won't Change
+
+- Release all note keys before pressing Z or X
+- The `_isKeyDown` flag prevents octave changes during playback
+
+## Integration with MIDI Controllers
+
+The virtual keyboard works alongside hardware MIDI controllers. You can use both simultaneously:
+- **Virtual keyboard**: Quick melodies and testing
+- **MIDI controller**: Velocity-sensitive performance with sustain pedal
+
+<Tip>
+Use the virtual keyboard for stepping through notes during sound design, then switch to your MIDI controller for recording expressive performances.
+</Tip>
+
+## See Also
+
+- [MIDI Tracks](/midi/midi-tracks) - Managing MIDI tracks and recording
+- [Piano Roll](/midi/piano-roll) - Editing recorded MIDI notes
+- [MIDI Clips](/midi/midi-clips) - Working with MIDI clip data
+- [VST Plugins](/plugins/vst-plugins) - Loading instruments for playback

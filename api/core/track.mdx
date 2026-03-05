@@ -1,0 +1,208 @@
+---
+title: 'Track'
+description: 'Base class for all tracks in Lumix (audio, MIDI, and group tracks)'
+---
+
+## Overview
+
+The `Track` class is an abstract base class representing a track in the Lumix DAW. Tracks contain clips, manage audio routing through a track engine, and provide UI controls for volume, pan, solo, mute, and recording.
+
+## Namespace
+
+```csharp
+Lumix.Tracks
+```
+
+## Inheritance
+
+```csharp
+public abstract class Track
+```
+
+## Properties
+
+<ResponseField name="TrackType" type="TrackType" required>
+  The type of track (Audio, Midi, or Group). This is an abstract property that must be implemented by derived classes.
+  ```csharp
+  public abstract TrackType TrackType { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="Engine" type="TrackEngine" required>
+  The audio engine responsible for processing this track's audio output.
+  ```csharp
+  public TrackEngine Engine { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Id" type="string" required>
+  Unique identifier for the track. Automatically generated using `Guid.NewGuid()`.
+  ```csharp
+  public string Id { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Name" type="string" required>
+  The display name of the track.
+  ```csharp
+  public string Name { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool" required>
+  Whether the track is enabled (not muted). When disabled, the track produces no output.
+  ```csharp
+  public bool Enabled { get; private set; }
+  ```
+  Default: `true`
+</ResponseField>
+
+<ResponseField name="Solo" type="bool" required>
+  Whether the track is soloed. When enabled, all other tracks are muted.
+  ```csharp
+  public bool Solo { get; private set; }
+  ```
+  Default: `false`
+</ResponseField>
+
+<ResponseField name="RecordOnStart" type="bool" required>
+  Whether the track should start recording when the global record button is pressed.
+  ```csharp
+  public bool RecordOnStart { get; private set; }
+  ```
+  Default: `false`
+</ResponseField>
+
+<ResponseField name="Volume" type="float" required>
+  Track volume in decibels (dB). Range: -90.0 to 6.0 dB.
+  ```csharp
+  public float Volume { get; private set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Pan" type="float" required>
+  Track panning. Range: -50.0 (hard left) to 50.0 (hard right).
+  ```csharp
+  public float Pan { get; private set; }
+  ```
+  Default: `0` (center)
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4" required>
+  RGBA color of the track for visual identification.
+  ```csharp
+  public Vector4 Color { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Clips" type="List<Clip>" required>
+  List of all clips contained in this track.
+  ```csharp
+  public List<Clip> Clips
+  ```
+</ResponseField>
+
+<ResponseField name="TimeSelectionArea" type="TimeSelection" required>
+  The currently selected time range in musical time on this track.
+  ```csharp
+  public TimeSelection TimeSelectionArea { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="DraggedClip" type="Clip" required>
+  The clip currently being dragged by the user, or `null` if no clip is being dragged.
+  ```csharp
+  public Clip DraggedClip { get; }
+  ```
+</ResponseField>
+
+## Methods
+
+### SetDraggedClip
+
+Sets the currently dragged clip.
+
+```csharp
+public void SetDraggedClip(Clip? draggedClip)
+```
+
+<ParamField path="draggedClip" type="Clip?" required>
+  The clip being dragged, or `null` to clear.
+</ParamField>
+
+### SetDragStartOffset
+
+Stores the horizontal offset when a drag operation starts.
+
+```csharp
+public void SetDragStartOffset(float dragStartOffsetX)
+```
+
+<ParamField path="dragStartOffsetX" type="float" required>
+  The X-axis offset in pixels where the drag started.
+</ParamField>
+
+### RenderArrangement
+
+Renders the track in the arrangement view, including all clips and grid lines.
+
+```csharp
+public void RenderArrangement()
+```
+
+This method handles:
+- Clip rendering and dragging
+- Time selection area
+- Grid line visualization
+- Drag-and-drop operations for clips and plugins
+- Clip duplication
+
+### RenderControls
+
+Renders the track control panel with volume, pan, solo, mute, and other controls.
+
+```csharp
+public void RenderControls()
+```
+
+This method displays:
+- Track name
+- Track reordering buttons
+- Volume meter
+- Enable/solo/record toggles
+- Volume and pan sliders
+- Track color picker
+
+## Example Usage
+
+```csharp
+// Creating a new audio track (typically done through ArrangementView)
+var audioTrack = new AudioTrack("Vocals", project.AudioOutputDevice);
+audioTrack.Color = new Vector4(0.2f, 0.5f, 0.8f, 1.0f);
+
+// Adding a clip to the track
+var audioClip = new AudioClip(audioTrack, new AudioClipData("vocal.wav"), 0);
+audioTrack.Clips.Add(audioClip);
+
+// Adjusting track volume (in dB)
+audioTrack.Volume = -6.0f;
+float linearVolume = (float)Math.Pow(10, audioTrack.Volume / 20);
+audioTrack.Engine.StereoSampleProvider.SetGain(linearVolume);
+
+// Panning the track
+audioTrack.Pan = 25.0f; // Pan right
+float mappedPan = audioTrack.Pan / 50f;
+audioTrack.Engine.StereoSampleProvider.Pan = mappedPan;
+```
+
+## Derived Classes
+
+- **AudioTrack**: For audio clips and audio processing
+- **MidiTrack**: For MIDI clips and virtual instruments
+- **GroupTrack**: For grouping and submixing multiple tracks
+
+## See Also
+
+- [Clip](/api/core/clip) - Audio and MIDI clips contained in tracks
+- [TrackEngine](/api/core/track-engine) - Audio processing engine for tracks
+- [MusicalTime](/api/core/musical-time) - Time representation in bars, beats, and ticks

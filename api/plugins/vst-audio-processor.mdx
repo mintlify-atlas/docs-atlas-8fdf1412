@@ -1,0 +1,227 @@
+---
+title: 'VstAudioProcessor'
+description: 'IAudioProcessor implementation for VST2 plugins with audio buffering and processing'
+---
+
+## Overview
+
+The `VstAudioProcessor` class implements the `IAudioProcessor` interface for VST2 plugins. It handles audio buffering, block size management, and bridges between Lumix's audio processing pipeline and the VST plugin's requirements.
+
+## Properties
+
+<ResponseField name="VstPlugin" type="VstPlugin" required>
+  The underlying `VstPlugin` instance managed by this processor.
+  
+  Provides access to MIDI functionality, plugin information, and window management.
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool" required>
+  Whether the audio processor is enabled. When disabled, audio passes through unprocessed.
+  
+  Defaults to `true`.
+</ResponseField>
+
+<ResponseField name="DeleteRequested" type="bool" required>
+  Flag indicating whether this processor should be deleted.
+  
+  When `true`, the processor skips audio processing.
+</ResponseField>
+
+<ResponseField name="DuplicateRequested" type="bool" required>
+  Flag indicating whether this processor should be duplicated.
+</ResponseField>
+
+## Constructor
+
+```csharp
+public VstAudioProcessor(VstPlugin vst)
+```
+
+Creates a new audio processor wrapper for the specified VST plugin.
+
+<ParamField path="vst" type="VstPlugin" required>
+  The VST plugin instance to process audio with.
+</ParamField>
+
+#### Example
+
+```csharp
+// Load a VST plugin
+var vstPlugin = new VstPlugin(@"C:\VSTPlugins\Reverb.dll");
+
+// Create an audio processor for it
+var processor = new VstAudioProcessor(vstPlugin);
+
+// Add to a plugin chain
+pluginChain.AddPlugin(processor);
+```
+
+## Methods
+
+### Process
+
+```csharp
+public void Process(float[] input, float[] output, int samplesRead)
+```
+
+Processes audio through the VST plugin using circular buffering to handle variable block sizes.
+
+<ParamField path="input" type="float[]" required>
+  The incoming unprocessed audio buffer with interleaved stereo samples.
+</ParamField>
+
+<ParamField path="output" type="float[]" required>
+  The buffer to write processed audio to.
+</ParamField>
+
+<ParamField path="samplesRead" type="int" required>
+  The number of samples to process.
+</ParamField>
+
+#### Implementation Details
+
+- Automatically initializes circular buffers on first call
+- Handles block size changes dynamically
+- Uses circular buffering to adapt Lumix's variable buffer sizes to VST's fixed block size requirements
+- For VSTi plugins, generates audio without requiring input
+- For VST effects, processes the input audio
+
+#### Example
+
+```csharp
+float[] inputBuffer = new float[1024];
+float[] outputBuffer = new float[1024];
+int samplesRead = 1024;
+
+// Process audio through the VST
+processor.Process(inputBuffer, outputBuffer, samplesRead);
+```
+
+### GetPlugin
+
+```csharp
+public T? GetPlugin<T>() where T : class
+```
+
+Retrieves the underlying `VstPlugin` instance if `T` is `VstPlugin`.
+
+<ParamField path="T" type="Type" required>
+  The type to retrieve. Only `VstPlugin` is supported.
+</ParamField>
+
+**Returns:** The `VstPlugin` instance if `T` is `VstPlugin`, otherwise `null`.
+
+#### Example
+
+```csharp
+IAudioProcessor processor = GetProcessorFromTrack();
+
+// Get the VST plugin to send MIDI
+var vstPlugin = processor.GetPlugin<VstPlugin>();
+if (vstPlugin != null)
+{
+    vstPlugin.SendNoteOn(0, 60, 100);
+}
+```
+
+## Audio Processing Pipeline
+
+The `VstAudioProcessor` uses a sophisticated buffering system to handle the impedance mismatch between Lumix's variable buffer sizes and VST's fixed block size requirements:
+
+```
+┌─────────────┐     ┌──────────────┐     ┌───────────┐     ┌──────────────┐
+│   Lumix     │────▶│    Input     │────▶│    VST    │────▶│    Output    │
+│   Audio     │     │   Circular   │     │  Plugin   │     │   Circular   │
+│  Engine     │     │   Buffer     │     │ Processing│     │   Buffer     │
+└─────────────┘     └──────────────┘     └───────────┘     └──────────────┘
+   Variable              Queue               Fixed             Queue
+  Buffer Size                              Block Size
+```
+
+### Processing Flow
+
+1. **Input Buffering**: Incoming audio is written to a circular input buffer
+2. **Block Processing**: When enough samples accumulate (≥ block size), they're processed through the VST
+3. **Output Buffering**: Processed audio is stored in a circular output buffer
+4. **Output Retrieval**: The requested number of samples is read from the output buffer
+
+## Usage Example
+
+```csharp
+using Lumix.Plugins.VST;
+
+public class VstProcessorExample
+{
+    private VstAudioProcessor _reverbProcessor;
+    private VstAudioProcessor _synthProcessor;
+
+    public void SetupPlugins()
+    {
+        // Load an effect plugin
+        var reverbPlugin = new VstPlugin(@"C:\VSTPlugins\Reverb.dll");
+        _reverbProcessor = new VstAudioProcessor(reverbPlugin);
+
+        // Load an instrument plugin
+        var synthPlugin = new VstPlugin(@"C:\VSTPlugins\Synth.dll");
+        _synthProcessor = new VstAudioProcessor(synthPlugin);
+
+        // Open synth editor
+        _synthProcessor.VstPlugin.OpenPluginWindow();
+    }
+
+    public void ProcessAudioFrame(float[] input, float[] output)
+    {
+        float[] tempBuffer = new float[input.Length];
+
+        // Process through synth (generates audio from MIDI)
+        _synthProcessor.Process(input, tempBuffer, input.Length);
+
+        // Process through reverb effect
+        _reverbProcessor.Process(tempBuffer, output, input.Length);
+    }
+
+    public void PlayNote(int note, int velocity)
+    {
+        // Send MIDI to the synth
+        var vstPlugin = _synthProcessor.GetPlugin<VstPlugin>();
+        vstPlugin?.SendNoteOn(0, note, velocity);
+
+        // Schedule note off after 500ms
+        Task.Delay(500).ContinueWith(_ => 
+        {
+            vstPlugin?.SendNoteOff(0, note, 64);
+        });
+    }
+
+    public void Cleanup()
+    {
+        _reverbProcessor.DeleteRequested = true;
+        _reverbProcessor.VstPlugin.Dispose();
+
+        _synthProcessor.DeleteRequested = true;
+        _synthProcessor.VstPlugin.Dispose();
+    }
+}
+```
+
+## Performance Considerations
+
+- **Circular Buffers**: The processor maintains circular buffers sized at 2× the typical buffer size to prevent overflow
+- **Block Size Updates**: Block size changes are detected and handled dynamically without audio glitches
+- **Lazy Initialization**: Buffers are only created when audio processing first occurs
+- **Zero-Copy When Possible**: The implementation minimizes buffer copying operations
+
+## Implementation Notes
+
+- Audio format is interleaved stereo (L, R, L, R, ...)
+- The processor converts between interleaved format and VST's planar format (separate L/R channels)
+- Sample rate is configured from `AudioSettings.SampleRate`
+- Processing precision is set to 32-bit float (`VstProcessPrecision.Process32`)
+- For VSTi plugins, input buffers are not populated (the synth generates audio internally)
+- The `DeleteRequested` flag should be checked before removal to ensure clean shutdown
+
+## See Also
+
+- [VstPlugin](/api/plugins/vst-plugin) - VST plugin management
+- [IAudioProcessor](/api/plugins/iaudio-processor) - Audio processor interface
+- [PluginChainSampleProvider](/api/plugins/plugin-chain-sample-provider) - Plugin chain management

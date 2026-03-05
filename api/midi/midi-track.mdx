@@ -1,0 +1,230 @@
+---
+title: MidiTrack
+description: Represents a MIDI track in the arrangement that can contain MIDI clips and VST instruments.
+---
+
+## Overview
+
+The `MidiTrack` class extends the base `Track` class to provide MIDI-specific functionality. MIDI tracks can contain MIDI clips and support VST instrument plugins for sound generation.
+
+## Constructor
+
+### MidiTrack()
+
+Creates a new MIDI track with default settings.
+
+<ParamField path="name" type="string" default='""'>
+  Optional name for the track. Defaults to an empty string.
+</ParamField>
+
+```csharp
+// Create a new MIDI track with default name
+var track = new MidiTrack();
+
+// Create a new MIDI track with a custom name
+var namedTrack = new MidiTrack("Piano");
+```
+
+## Properties
+
+### TrackType
+
+<ResponseField name="TrackType" type="TrackType" required>
+  Returns `TrackType.Midi` to identify this as a MIDI track.
+</ResponseField>
+
+```csharp
+if (track.TrackType == TrackType.Midi)
+{
+    Console.WriteLine("This is a MIDI track");
+}
+```
+
+### DraggedClip
+
+<ResponseField name="DraggedClip" type="MidiClipData">
+  Returns the currently dragged MIDI clip data, or null if no clip is being dragged.
+</ResponseField>
+
+```csharp
+if (track.DraggedClip != null)
+{
+    Console.WriteLine("A MIDI clip is being dragged");
+}
+```
+
+### Inherited Properties
+
+MidiTrack inherits the following properties from the `Track` base class:
+
+<ResponseField name="Engine" type="TrackEngine">
+  The audio engine for this track (TrackMidiEngine).
+</ResponseField>
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the track (auto-generated GUID).
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  The display name of the track.
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool">
+  Whether the track is enabled (unmuted).
+</ResponseField>
+
+<ResponseField name="Solo" type="bool">
+  Whether the track is soloed.
+</ResponseField>
+
+<ResponseField name="RecordOnStart" type="bool">
+  Whether recording should start when the play button is pressed.
+</ResponseField>
+
+<ResponseField name="Volume" type="float">
+  Track volume in decibels (-90dB to +6dB).
+</ResponseField>
+
+<ResponseField name="Pan" type="float">
+  Track panning (-50 to +50).
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4">
+  RGBA color of the track.
+</ResponseField>
+
+<ResponseField name="Clips" type="List<Clip>">
+  List of clips contained in this track.
+</ResponseField>
+
+<ResponseField name="TrackTopPos" type="float">
+  The Y position of the track in the arrangement view.
+</ResponseField>
+
+<ResponseField name="TrackHasCursor" type="bool">
+  Whether the mouse cursor is over this track.
+</ResponseField>
+
+<ResponseField name="TimeSelectionArea" type="TimeSelection">
+  Selected time region on the track in musical time.
+</ResponseField>
+
+<ResponseField name="IsAreaSelectionMode" type="bool">
+  Whether the track is in area selection mode.
+</ResponseField>
+
+## Methods
+
+### CreateMidiClip(long)
+
+Creates a new MIDI clip at the specified time position.
+
+<ParamField path="time" type="long" required>
+  The starting time in ticks for the new MIDI clip.
+</ParamField>
+
+```csharp
+// Create a MIDI clip at tick 0
+track.CreateMidiClip(0);
+
+// Create a MIDI clip at tick 3840 (1 bar at 960 PPQ)
+track.CreateMidiClip(3840);
+```
+
+### CreateMidiClip(TimeSelection)
+
+Creates a new MIDI clip with the duration and position defined by a time selection.
+
+<ParamField path="time" type="TimeSelection" required>
+  The time selection defining the clip's start, end, and duration.
+</ParamField>
+
+```csharp
+var selection = new TimeSelection
+{
+    Start = new MusicalTime(1, 1, 0),  // Bar 1, Beat 1
+    End = new MusicalTime(5, 1, 0)      // Bar 5, Beat 1
+};
+track.CreateMidiClip(selection);
+```
+
+### Inherited Methods
+
+MidiTrack inherits these methods from the `Track` base class:
+
+#### SetDraggedClip()
+
+Sets the currently dragged clip.
+
+<ParamField path="draggedClip" type="Clip" required>
+  The clip being dragged, or null to clear.
+</ParamField>
+
+```csharp
+track.SetDraggedClip(myClip);
+```
+
+#### SetDragStartOffset()
+
+Sets the offset from the clip's start when dragging begins.
+
+<ParamField path="dragStartOffsetX" type="float" required>
+  The X offset in pixels.
+</ParamField>
+
+```csharp
+track.SetDragStartOffset(50.0f);
+```
+
+#### RenderArrangement()
+
+Renders the track in the arrangement view. This method handles all track rendering including clips, selection areas, and grid lines.
+
+```csharp
+track.RenderArrangement();
+```
+
+#### RenderControls()
+
+Renders the track control panel including volume, pan, mute, solo, and other controls.
+
+```csharp
+track.RenderControls();
+```
+
+## Events
+
+MidiTrack automatically subscribes to volume measurement events from its audio engine:
+
+- **VolumeMeasured**: Triggered when audio volume is measured, updates left and right channel gain meters.
+
+## Usage Example
+
+```csharp
+// Create a new MIDI track
+var pianoTrack = new MidiTrack("Piano");
+
+// Create a MIDI clip at the start
+pianoTrack.CreateMidiClip(0);
+
+// Create a MIDI clip with specific time selection
+var clipSelection = new TimeSelection
+{
+    Start = new MusicalTime(5, 1, 0),
+    End = new MusicalTime(9, 1, 0)
+};
+pianoTrack.CreateMidiClip(clipSelection);
+
+// Access track properties
+Console.WriteLine($"Track Name: {pianoTrack.Name}");
+Console.WriteLine($"Number of clips: {pianoTrack.Clips.Count}");
+Console.WriteLine($"Track Type: {pianoTrack.TrackType}");
+```
+
+## Notes
+
+- MIDI tracks automatically create a `TrackMidiEngine` on construction
+- Double-clicking on empty space in the arrangement creates a new MIDI clip
+- MIDI tracks support VST instrument plugins for sound generation
+- The track color is randomly assigned on creation but can be changed
+- Volume gain is measured in real-time for the left and right channels

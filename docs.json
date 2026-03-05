@@ -1,122 +1,139 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Lumix",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#e99125",
+    "light": "#312e2a",
+    "dark": "#e0e0e0"
   },
   "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/ImAxel0/Lumix"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/ImAxel0/Lumix"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "building-from-source"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "core-concepts/tracks",
+              "core-concepts/clips",
+              "core-concepts/timeline",
+              "core-concepts/musical-time"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Audio Features",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "audio/audio-tracks",
+              "audio/audio-clips",
+              "audio/audio-engine"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "MIDI Features",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "midi/midi-tracks",
+              "midi/midi-clips",
+              "midi/piano-roll",
+              "midi/virtual-keyboard"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/vst-plugins",
+              "plugins/built-in-plugins",
+              "plugins/plugin-chain"
+            ]
+          },
+          {
+            "group": "User Interface",
+            "pages": [
+              "ui/arrangement-view",
+              "ui/devices-view",
+              "ui/sidebar",
+              "ui/preferences"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/contributing",
+              "development/building-plugins"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core",
             "pages": [
-              "api-reference/introduction"
+              "api/core/track",
+              "api/core/clip",
+              "api/core/musical-time",
+              "api/core/track-engine"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Audio",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/audio/audio-track",
+              "api/audio/audio-clip",
+              "api/audio/audio-clip-data"
+            ]
+          },
+          {
+            "group": "MIDI",
+            "pages": [
+              "api/midi/midi-track",
+              "api/midi/midi-clip",
+              "api/midi/midi-clip-data"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "api/plugins/iaudio-processor",
+              "api/plugins/vst-plugin",
+              "api/plugins/vst-audio-processor",
+              "api/plugins/plugin-chain-sample-provider"
+            ]
+          },
+          {
+            "group": "Views",
+            "pages": [
+              "api/views/arrangement-view",
+              "api/views/timeline-v2",
+              "api/views/devices-view",
+              "api/views/midi-clip-view"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

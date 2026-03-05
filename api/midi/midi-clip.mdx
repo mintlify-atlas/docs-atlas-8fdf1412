@@ -1,0 +1,355 @@
+---
+title: MidiClip
+description: Represents a MIDI clip containing note and performance data that can be edited and played back.
+---
+
+## Overview
+
+The `MidiClip` class extends the base `Clip` class to provide MIDI-specific functionality. MIDI clips contain MIDI note data, have an associated piano roll editor, and can be created from MIDI files or programmatically.
+
+## Constructors
+
+### MidiClip(MidiTrack, string, long)
+
+Creates a new MIDI clip from a MIDI file.
+
+<ParamField path="parent" type="MidiTrack" required>
+  The parent MIDI track that will contain this clip.
+</ParamField>
+
+<ParamField path="filePath" type="string" required>
+  Path to the MIDI file (.mid) to load.
+</ParamField>
+
+<ParamField path="startingTime" type="long" default="0">
+  Starting time in ticks for the clip in the arrangement.
+</ParamField>
+
+```csharp
+// Load a MIDI file into a clip at tick 0
+var clip = new MidiClip(midiTrack, "path/to/melody.mid", 0);
+
+// Load a MIDI file starting at tick 3840
+var clip = new MidiClip(midiTrack, "path/to/drums.mid", 3840);
+```
+
+### MidiClip(MidiTrack, MidiClipData, long)
+
+Creates a new MIDI clip from existing MIDI clip data.
+
+<ParamField path="parent" type="MidiTrack" required>
+  The parent MIDI track that will contain this clip.
+</ParamField>
+
+<ParamField path="midiData" type="MidiClipData" required>
+  The MIDI data for the clip.
+</ParamField>
+
+<ParamField path="startingTime" type="long" default="0">
+  Starting time in ticks for the clip in the arrangement.
+</ParamField>
+
+```csharp
+// Create a clip from existing MIDI data
+var clipData = new MidiClipData();
+var clip = new MidiClip(midiTrack, clipData, 1920);
+```
+
+### MidiClip(MidiTrack, long)
+
+Creates a new empty MIDI clip with default length.
+
+<ParamField path="parent" type="MidiTrack" required>
+  The parent MIDI track that will contain this clip.
+</ParamField>
+
+<ParamField path="startingTime" type="long" default="0">
+  Starting time in ticks for the clip in the arrangement.
+</ParamField>
+
+```csharp
+// Create an empty MIDI clip at tick 0
+var clip = new MidiClip(midiTrack, 0);
+```
+
+### MidiClip(MidiTrack, TimeSelection)
+
+Creates a new MIDI clip with duration and position defined by a time selection.
+
+<ParamField path="parent" type="MidiTrack" required>
+  The parent MIDI track that will contain this clip.
+</ParamField>
+
+<ParamField path="time" type="TimeSelection" required>
+  Time selection defining the clip's start time and duration.
+</ParamField>
+
+```csharp
+// Create a clip spanning 4 bars
+var selection = new TimeSelection
+{
+    Start = new MusicalTime(1, 1, 0),
+    End = new MusicalTime(5, 1, 0)
+};
+var clip = new MidiClip(midiTrack, selection);
+```
+
+## Properties
+
+### MidiClipData
+
+<ResponseField name="MidiClipData" type="MidiClipData" required>
+  The MIDI data container with notes, tempo map, and MIDI file information.
+</ResponseField>
+
+```csharp
+// Access the clip's MIDI data
+var notes = clip.MidiClipData.Notes;
+var tempoMap = clip.MidiClipData.TempoMap;
+```
+
+### PianoRollEditor
+
+<ResponseField name="PianoRollEditor" type="PianoRoll" required>
+  The piano roll editor instance associated with this clip.
+</ResponseField>
+
+```csharp
+// Access the piano roll editor
+var editor = clip.PianoRollEditor;
+```
+
+### Inherited Properties
+
+MidiClip inherits the following properties from the `Clip` base class:
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the clip (auto-generated GUID).
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  Display name of the clip.
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool">
+  Whether the clip is enabled (not muted).
+</ResponseField>
+
+<ResponseField name="Track" type="Track">
+  The parent track containing this clip.
+</ResponseField>
+
+<ResponseField name="ClipWidth" type="float">
+  Width of the clip in pixels.
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4">
+  RGBA color of the clip.
+</ResponseField>
+
+<ResponseField name="StartTick" type="long">
+  Starting time in ticks in the arrangement.
+</ResponseField>
+
+<ResponseField name="EndTick" type="long">
+  Ending time in ticks in the arrangement.
+</ResponseField>
+
+<ResponseField name="DurationTicks" type="long">
+  Duration of the clip in ticks.
+</ResponseField>
+
+<ResponseField name="StartMusicalTime" type="MusicalTime">
+  Starting time in musical notation (Bars.Beats.Ticks).
+</ResponseField>
+
+<ResponseField name="EndMusicalTime" type="MusicalTime">
+  Ending time in musical notation (Bars.Beats.Ticks).
+</ResponseField>
+
+<ResponseField name="DurationMusicalTime" type="MusicalTime">
+  Duration in musical notation (Bars.Beats.Ticks).
+</ResponseField>
+
+<ResponseField name="StartMarker" type="long">
+  Trimmed portion in ticks from the start of the clip.
+</ResponseField>
+
+<ResponseField name="EndMarker" type="long">
+  Trimmed portion in ticks from the end of the clip.
+</ResponseField>
+
+<ResponseField name="ClipIsHovered" type="bool">
+  Whether the mouse is hovering over the clip.
+</ResponseField>
+
+<ResponseField name="MenuBarIsHovered" type="bool">
+  Whether the mouse is hovering over the clip's menu bar.
+</ResponseField>
+
+<ResponseField name="HasPlayed" type="bool">
+  Whether the clip has been played during current playback.
+</ResponseField>
+
+<ResponseField name="DeleteRequested" type="bool">
+  Flag indicating the clip should be deleted.
+</ResponseField>
+
+<ResponseField name="DuplicateRequested" type="bool">
+  Flag indicating the clip should be duplicated.
+</ResponseField>
+
+## Methods
+
+### UpdateClipData()
+
+Updates the clip's MIDI data with new data.
+
+<ParamField path="newdata" type="MidiClipData" required>
+  The new MIDI clip data to replace the existing data.
+</ParamField>
+
+```csharp
+var newData = new MidiClipData();
+clip.UpdateClipData(newData);
+```
+
+### Inherited Methods
+
+MidiClip inherits these methods from the `Clip` base class:
+
+#### SetStartTick()
+
+Sets the starting time of the clip in ticks.
+
+<ParamField path="tick" type="long" required>
+  The starting time in ticks.
+</ParamField>
+
+```csharp
+// Move clip to start at tick 7680
+clip.SetStartTick(7680);
+```
+
+#### GetStartTimeInMusicalTime()
+
+Returns the clip's start time in musical notation (Bars.Beats.Ticks).
+
+```csharp
+MusicalTime startTime = clip.GetStartTimeInMusicalTime();
+Console.WriteLine($"Clip starts at {startTime.Bars}.{startTime.Beats}.{startTime.Ticks}");
+```
+
+#### GetEndTimeInMusicalTime()
+
+Returns the clip's end time in musical notation (Bars.Beats.Ticks).
+
+```csharp
+MusicalTime endTime = clip.GetEndTimeInMusicalTime();
+Console.WriteLine($"Clip ends at {endTime.Bars}.{endTime.Beats}.{endTime.Ticks}");
+```
+
+#### GetDurationInMusicalTime()
+
+Returns the clip's duration in musical notation (Bars.Beats.Ticks).
+
+```csharp
+MusicalTime duration = clip.GetDurationInMusicalTime();
+Console.WriteLine($"Clip duration: {duration.Bars}.{duration.Beats}.{duration.Ticks}");
+```
+
+#### GetDurationInSeconds()
+
+Returns the clip's duration in seconds.
+
+```csharp
+double durationSeconds = clip.GetDurationInSeconds();
+Console.WriteLine($"Clip duration: {durationSeconds:F2} seconds");
+```
+
+#### Play()
+
+Plays the MIDI clip through the track's engine.
+
+<ParamField path="midiFile" type="MidiFile" required>
+  The MIDI file to play.
+</ParamField>
+
+<ParamField path="offset" type="float" required>
+  Starting offset in seconds.
+</ParamField>
+
+```csharp
+clip.Play(clip.MidiClipData.MidiFile, 0.0f);
+```
+
+#### Render()
+
+Renders the clip in the arrangement view.
+
+```csharp
+clip.Render();
+```
+
+## Protected Methods
+
+### GetClipDuration()
+
+Calculates and returns the duration of the clip in ticks based on the MIDI file's duration.
+
+### GetClipWidth()
+
+Calculates and returns the width of the clip in pixels based on the current zoom level.
+
+### RenderClipContent()
+
+Renders the visual content of the clip (MIDI notes visualization).
+
+### OnClipDoubleClickLeft()
+
+Handles double-click events on the clip. Opens the piano roll editor view.
+
+## Usage Example
+
+```csharp
+// Create a MIDI track
+var midiTrack = new MidiTrack("Melody");
+
+// Create a clip from a MIDI file
+var clip1 = new MidiClip(midiTrack, "path/to/melody.mid", 0);
+midiTrack.Clips.Add(clip1);
+
+// Create an empty clip with time selection
+var selection = new TimeSelection
+{
+    Start = new MusicalTime(5, 1, 0),
+    End = new MusicalTime(9, 1, 0)
+};
+var clip2 = new MidiClip(midiTrack, selection);
+midiTrack.Clips.Add(clip2);
+
+// Access clip properties
+Console.WriteLine($"Clip Name: {clip1.Name}");
+Console.WriteLine($"Duration: {clip1.GetDurationInSeconds():F2} seconds");
+Console.WriteLine($"Number of notes: {clip1.MidiClipData.Notes.Count}");
+
+// Update clip data
+var newData = new MidiClipData();
+clip2.UpdateClipData(newData);
+
+// Move clip to a new position
+clip1.SetStartTick(3840);
+
+// Get musical time information
+var startTime = clip1.GetStartTimeInMusicalTime();
+Console.WriteLine($"Starts at: {startTime.Bars}.{startTime.Beats}.{startTime.Ticks}");
+```
+
+## Notes
+
+- Double-clicking a MIDI clip opens it in the piano roll editor
+- The clip's name is automatically set from the MIDI file name when loading from a file
+- The clip's color is inherited from the parent track by default
+- Clips can be dragged between tracks and duplicated with Ctrl+D
+- MIDI clip duration is calculated from the MIDI file's total duration in seconds
+- The piano roll editor allows detailed note editing and is accessible via `PianoRollEditor` property

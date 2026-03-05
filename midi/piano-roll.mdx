@@ -1,0 +1,536 @@
+---
+title: Piano Roll Editor
+description: Edit MIDI notes with precision using Lumix's powerful piano roll interface
+---
+
+## Overview
+
+The piano roll editor provides a visual interface for creating and editing MIDI notes. It features zoom controls, grid snapping, note editing tools, and real-time playback preview.
+
+## Opening the Piano Roll
+
+Double-click any MIDI clip in the arrangement view to open it in the piano roll editor. The editor appears in the bottom panel with full access to all editing features.
+
+## Interface Layout
+
+The piano roll consists of several key areas:
+
+- **Piano Keys** (left): 88-key piano keyboard (A0 to C8) for pitch reference
+- **Grid Area** (center): Note editing canvas with musical time grid
+- **Menu Bar** (top): Zoom controls and view options
+- **Timeline** (top of grid): Bars and beats display
+
+```csharp
+public class PianoRoll
+{
+    private const int TotalKeys = 88; // Full piano keys (A0 to C8)
+    private const float KeyWidth = 60f;
+    private float _noteHeight;
+    private float _zoom = 2f;
+    private float _vZoom = 0.3f;
+    private float _scrollX = 0f;
+    private float _scrollY = 0f;
+}
+```
+
+## Navigation
+
+### Zoom Controls
+
+<Tabs>
+  <Tab title="Horizontal Zoom">
+    **Ctrl + Mouse Wheel**: Zoom in/out on the timeline
+    
+    ```csharp
+    public void ZoomChange(float value)
+    {
+        float mousePosInWindowX = ImGui.GetMousePos().X - _windowPos.X - KeyWidth;
+        float mousePosInContentX = mousePosInWindowX + _scrollX;
+        
+        float _previousValue = _zoom;
+        
+        if (value > 0)
+            _zoom = Math.Clamp(_zoom + 0.1f, 0.1f, 2f);
+        else
+            _zoom = Math.Clamp(_zoom - 0.1f, 0.1f, 2f);
+        
+        if (_previousValue != _zoom)
+        {
+            float zoomFactor = _zoom / _previousValue;
+            _scrollX = Math.Clamp(mousePosInContentX * zoomFactor - mousePosInWindowX, 0, float.PositiveInfinity);
+        }
+    }
+    ```
+    
+    Zoom range: 1x to 20x
+  </Tab>
+  
+  <Tab title="Vertical Zoom">
+    **Alt + Mouse Wheel**: Zoom in/out on the piano keys
+    
+    ```csharp
+    public void VZoomChange(float value)
+    {
+        float mousePosInWindowY = ImGui.GetMousePos().Y - _windowPos.Y;
+        float mousePosInContentY = mousePosInWindowY + _scrollY;
+        
+        float _previousValue = _vZoom;
+        
+        if (value > 0)
+            _vZoom = Math.Clamp(_vZoom + 0.1f, 0.1f, 2f);
+        else
+            _vZoom = Math.Clamp(_vZoom - 0.1f, 0.1f, 2f);
+        
+        if (_previousValue != _vZoom)
+        {
+            float zoomFactor = _vZoom / _previousValue;
+            _scrollY = Math.Clamp(mousePosInContentY * zoomFactor - mousePosInWindowY, 0, float.PositiveInfinity);
+        }
+    }
+    ```
+    
+    Zoom range: 1x to 20x
+  </Tab>
+  
+  <Tab title="Panning">
+    **Middle Mouse Button + Drag**: Pan around the canvas
+    
+    **Shift + Middle Mouse**: Boost pan speed by 4x
+    
+    ```csharp
+    if (ImGui.IsMouseDown(ImGuiMouseButton.Middle))
+    {
+        ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
+        float force = ImGui.IsKeyDown(ImGuiKey.ModShift) ? _panBoostForce : 1f;
+        _scrollX -= ImGui.GetIO().MouseDelta.X * force;
+        _scrollY -= ImGui.GetIO().MouseDelta.Y * force;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Scrolling">
+    **Mouse Wheel**: Scroll vertically through piano keys
+    
+    Scrolling is automatically clamped to valid ranges.
+  </Tab>
+</Tabs>
+
+## Creating Notes
+
+### Drawing Notes
+
+**Double-click** on the grid to create a note:
+
+```csharp
+if (ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left) && !_notesHovered.Any(n => n == true))
+{
+    // Get note position
+    int row = (int)(localPos.Y / (_vZoom * 10) / _noteHeight);
+    float adjustedMousePosX = (int)localPos.X - KeyWidth;
+    long tick = SnapToGrid(PositionToTime(adjustedMousePosX));
+    
+    // Create note
+    NoteName noteName = RowToNoteName(row);
+    int octave = RowToOctave(row);
+    Note data = new(noteName, octave)
+    {
+        Velocity = new SevenBitNumber(100),
+        Time = realTicks,
+        Length = GetTicksInBar() // Default length
+    };
+    _currentNote = new PNote(data);
+    _notes.Add(_currentNote);
+}
+```
+
+### Setting Note Velocity
+
+While drawing a note, **drag up or down** to adjust velocity:
+
+```csharp
+else if (ImGui.IsMouseDragging(ImGuiMouseButton.Left) && _currentNote != null)
+{
+    // Update note length while dragging
+    _currentNote.Data.Length = Math.Clamp(realTicks - _currentNote.Data.Time, GetTicksInBar(), long.MaxValue);
+    
+    // Update velocity
+    float delta = Math.Clamp(ImGui.GetIO().MouseDelta.Y, -1f, 1f);
+    var vel = _currentNote.Data.Velocity - delta;
+    _currentNote.Data.Velocity = (SevenBitNumber)Math.Clamp(vel, SevenBitNumber.MinValue, SevenBitNumber.MaxValue);
+}
+```
+
+## Editing Notes
+
+### Selecting Notes
+
+<CardGroup cols={2}>
+  <Card title="Single Selection" icon="hand-pointer">
+    Click a note to select it. Previously selected notes are deselected.
+  </Card>
+  
+  <Card title="Multi-Selection" icon="object-group">
+    Hold **Shift** and click to add notes to the selection.
+  </Card>
+  
+  <Card title="Deselect All" icon="xmark">
+    Click on empty grid space to clear selection.
+  </Card>
+  
+  <Card title="Visual Feedback" icon="eye">
+    Selected notes are highlighted with a colored border.
+  </Card>
+</CardGroup>
+
+### Moving Notes
+
+**Drag selected notes** to move them:
+
+```csharp
+if (ImGui.IsMouseDown(ImGuiMouseButton.Left) && _currentNote == null && !_rightResizing && !_leftResizing && _movingNotes)
+{
+    // Vertical movement (pitch change)
+    if (row < _lastSelectedRow && !velocityChange)
+    {
+        _selectedNotes.ForEach(n => n.Data.NoteNumber = (SevenBitNumber)Math.Clamp(n.Data.NoteNumber + new SevenBitNumber(1), 21, 108));
+        HandleOverlappingNotes();
+        _midiClip.UpdateClipData(new MidiClipData(ToMidiFile()));
+        _lastSelectedRow = row;
+    }
+    
+    // Horizontal movement (time shift)
+    if (SnapToGrid(tick) < _lastSnapTick && !velocityChange)
+    {
+        _selectedNotes.ForEach(n => n.Data.Time = Math.Clamp(n.Data.Time - GetTicksInBar(), 0, long.MaxValue));
+        _midiClip.UpdateClipData(new MidiClipData(ToMidiFile()));
+        _lastSnapTick = SnapToGrid(tick);
+    }
+}
+```
+
+**Alt + Drag**: Adjust velocity while moving notes
+
+### Resizing Notes
+
+Notes can be resized from either edge:
+
+```csharp
+// Right edge resize
+if ((rightBorderHover || _rightResizing) && !_leftResizing && !_movingNotes)
+{
+    ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeEW);
+    if (ImGui.IsMouseDown(ImGuiMouseButton.Left))
+    {
+        _rightResizing = true;
+        long tick = GetTicksAtCursor();
+        
+        if (SnapToGrid(tick) > _resizeSnapTick)
+        {
+            _selectedNotes.ForEach(n => {
+                n.Data.Length = Math.Clamp(n.Data.Length + GetTicksInBar(), GetTicksInBar(), long.MaxValue);
+            });
+        }
+    }
+}
+```
+
+Resize grip size adapts to zoom level:
+```csharp
+float resizeGripSize = rectWidth * 10 / 100;
+resizeGripSize = Math.Clamp(resizeGripSize, 5f, 15f);
+```
+
+### Deleting Notes
+
+<Tabs>
+  <Tab title="Keyboard">
+    Select notes and press **Delete** to remove them:
+    
+    ```csharp
+    if (ImGui.IsKeyPressed(ImGuiKey.Delete))
+    {
+        _selectedNotes.ForEach(note => {
+            _notes.Remove(note);
+        });
+        _midiClip.UpdateClipData(new MidiClipData(ToMidiFile()));
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Double-Click">
+    Double-click a note to delete it immediately.
+  </Tab>
+</Tabs>
+
+## Keyboard Shortcuts
+
+### Note Manipulation
+
+| Shortcut | Action |
+|----------|--------|
+| **Arrow Up** | Move selected notes up by 1 semitone |
+| **Shift + Arrow Up** | Move selected notes up by 1 octave (12 semitones) |
+| **Arrow Down** | Move selected notes down by 1 semitone |
+| **Shift + Arrow Down** | Move selected notes down by 1 octave |
+| **Arrow Right** | Move selected notes right by 1 grid unit |
+| **Shift + Arrow Right** | Extend selected notes by 1 grid unit |
+| **Arrow Left** | Move selected notes left by 1 grid unit |
+| **Shift + Arrow Left** | Shorten selected notes by 1 grid unit |
+
+```csharp
+if (ImGui.IsKeyPressed(ImGuiKey.UpArrow))
+{
+    if (ImGui.IsKeyDown(ImGuiKey.ModShift))
+        _selectedNotes.ForEach(n => n.Data.NoteNumber = (SevenBitNumber)Math.Clamp(n.Data.NoteNumber + new SevenBitNumber(12), 21, 108));
+    else
+        _selectedNotes.ForEach(n => n.Data.NoteNumber = (SevenBitNumber)Math.Clamp(n.Data.NoteNumber + new SevenBitNumber(1), 21, 108));
+    
+    HandleOverlappingNotes();
+    _midiClip.UpdateClipData(new MidiClipData(ToMidiFile()));
+}
+```
+
+### Note Operations
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl + D** | Duplicate selected notes |
+| **Ctrl + Click** | Duplicate notes while dragging |
+| **0** (zero) | Toggle enable/disable for selected notes |
+| **Delete** | Delete selected notes |
+
+### Duplication
+
+```csharp
+private void DuplicateNotes(bool shiftTime = false, bool handleOverlaps = true)
+{
+    foreach (var note in _selectedNotes.ToList())
+    {
+        _selectedNotes.Remove(note);
+        var clone = note.Data.Clone();
+        var newNote = new PNote((Note)clone);
+        
+        if (shiftTime)
+        {
+            newNote.Data.Time = note.Data.EndTime; // Shift time
+        }
+        
+        // Setup event handlers
+        newNote.Data.LengthChanged += (sender, e) =>
+        {
+            HandleOverlappingNotes();
+            _midiClip.UpdateClipData(new MidiClipData(ToMidiFile()));
+        };
+        
+        _notes.Add(newNote);
+        _selectedNotes.Add(newNote);
+    }
+}
+```
+
+## Grid and Snapping
+
+### Grid Settings
+
+Right-click to access grid quantization options:
+
+```csharp
+private void RenderPopupMenu()
+{
+    // Grid options: 8 Bars, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32
+    if (ImGui.MenuItem("1 Bar", "", _beatsPerBar == 4))
+        _beatsPerBar = 4;
+    if (ImGui.MenuItem("1/4", "", _beatsPerBar == 1))
+        _beatsPerBar = 1;
+    if (ImGui.MenuItem("1/8", "", _beatsPerBar == 1 / 2f))
+        _beatsPerBar = 1 / 2f;
+    if (ImGui.MenuItem("1/16", "", _beatsPerBar == 1 / 4f))
+        _beatsPerBar = 1 / 4f;
+}
+```
+
+### Snap to Grid
+
+All note operations snap to the current grid setting:
+
+```csharp
+public long SnapToGrid(long tick)
+{
+    long gridSpacing = (long)(TimeLineV2.PPQ * _beatsPerBar);
+    return (long)Math.Round((double)tick / gridSpacing) * gridSpacing;
+}
+```
+
+## Overlap Handling
+
+The piano roll automatically handles overlapping notes:
+
+```csharp
+public void HandleOverlappingNotes()
+{
+    foreach (var note in _selectedNotes.ToList())
+    {
+        foreach (var other in _notes.ToList())
+        {
+            if (note.Data != other.Data && note.Data.NoteNumber == other.Data.NoteNumber)
+            {
+                long noteStart = note.Data.Time;
+                long noteEnd = note.Data.Time + note.Data.Length;
+                long otherStart = other.Data.Time;
+                long otherEnd = other.Data.Time + other.Data.Length;
+                
+                if (noteStart < otherEnd && noteEnd > otherStart)
+                {
+                    // Handle different overlap scenarios:
+                    // 1. Selected note completely covers other note - remove other
+                    // 2. Selected note inside other note - split other
+                    // 3. Selected note overlaps start/end - trim other
+                }
+            }
+        }
+    }
+}
+```
+
+## Visual Features
+
+### Note Colors
+
+Notes are colored based on velocity and track color:
+
+```csharp
+var noteColor = note.Enabled ? _midiClip.Color : Vector4.Zero;
+
+float velocityScale = note.Data.Velocity / 127f;
+float minBrightness = 0.2f;
+
+float maxChannel = Math.Max(noteColor.X, Math.Max(noteColor.Y, noteColor.Z));
+if (maxChannel > 0)
+{
+    noteColor.X = Math.Max(minBrightness * (noteColor.X / maxChannel), noteColor.X * velocityScale);
+    noteColor.Y = Math.Max(minBrightness * (noteColor.Y / maxChannel), noteColor.Y * velocityScale);
+    noteColor.Z = Math.Max(minBrightness * (noteColor.Z / maxChannel), noteColor.Z * velocityScale);
+}
+```
+
+### Note Labels
+
+Note names are displayed when vertical zoom is sufficient:
+
+```csharp
+string noteName = $"{note.Data.NoteName.ToString().Replace("Sharp", "#")}{note.Data.Octave}";
+if (_vZoom >= 0.3f && ImGui.CalcTextSize(noteName).X < rectEnd.X - rectStart.X)
+{
+    drawList.AddText(notePosition, textColor, noteName);
+}
+```
+
+### Piano Key Highlighting
+
+- **C notes**: Always labeled for octave reference
+- **Hovered key**: Shows note name when cursor is on that row
+- **Black/white keys**: Color-coded for easy pitch identification
+
+## Playback Features
+
+### Real-time Preview
+
+Enable the headphones button to hear notes as you edit:
+
+```csharp
+if (_keysSound)
+{
+    var vstPlugin = _midiTrack.Engine.PluginChainSampleProvider.PluginInstrument?.GetPlugin<VstPlugin>();
+    vstPlugin?.SendNoteOn(0, note.Data.NoteNumber, note.Data.Velocity);
+}
+```
+
+### Playhead Display
+
+The playhead shows current playback position:
+
+```csharp
+private void RenderTimeLine()
+{
+    float xOffset = _windowPos.X + TimeToPosition(TimeLineV2.GetCurrentTick()) - _scrollX + KeyWidth - TicksToPixels(_midiClip.StartTick);
+    
+    if (TimeLineV2.GetCurrentTick() > 0 && xOffset > _windowPos.X + KeyWidth && TimeLineV2.IsPlaying())
+    {
+        ImGui.GetWindowDrawList().AddLine(
+            new(xOffset, _windowPos.Y), 
+            new(xOffset, _windowPos.Y + _windowSize.Y), 
+            ImGui.GetColorU32(new Vector4(1, 1, 1, 0.8f))
+        );
+    }
+}
+```
+
+<Tip>
+The piano roll automatically scrolls to follow the playhead during playback for easy monitoring.
+</Tip>
+
+## Advanced Features
+
+<AccordionGroup>
+  <Accordion title="Note Enable/Disable">
+    Disable notes without deleting them by pressing **0** with notes selected. Disabled notes appear dimmed and won't play.
+    
+    ```csharp
+    if (ImGui.IsKeyPressed(ImGuiKey._0, false))
+    {
+        _selectedNotes.ForEach(n => n.Enabled = !n.Enabled);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Musical Time Display">
+    The timeline shows bars and beats in musical notation:
+    
+    ```csharp
+    for (long tick = startTick; tick <= endTick; tick += gridSpacing)
+    {
+        var musicalTime = TimeLineV2.TicksToMusicalTime(tick, true);
+        drawList.AddText(position, color, $"{musicalTime.Bars}.{musicalTime.Beats}");
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="MIDI File Export">
+    The piano roll can export edited notes back to MIDI file format:
+    
+    ```csharp
+    public MidiFile ToMidiFile()
+    {
+        var trackChunk = new TrackChunk();
+        var timedEvents = new List<(long AbsoluteTime, MidiEvent MidiEvent)>();
+        
+        foreach (var note in _notes)
+        {
+            timedEvents.Add((note.Data.Time, new NoteOnEvent(note.Data.NoteNumber, note.Data.Velocity)));
+            timedEvents.Add((note.Data.Time + note.Data.Length, new NoteOffEvent(note.Data.NoteNumber, (SevenBitNumber)0)));
+        }
+        
+        // Sort and calculate delta times...
+        return new MidiFile(trackChunk);
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+Modifying notes while playback is active may cause audio glitches. Pause playback for complex editing operations.
+</Warning>
+
+## Performance Tips
+
+- **Lower vertical zoom** for files with many notes to improve rendering performance
+- **Use grid snapping** to maintain clean, quantized timing
+- **Disable note preview** when working with CPU-intensive VST instruments
+- **Work in sections** by splitting large MIDI files into smaller clips
+
+## See Also
+
+- [MIDI Clips](/midi/midi-clips) - Managing MIDI clip data
+- [MIDI Tracks](/midi/midi-tracks) - Track-level MIDI features
+- [Virtual Keyboard](/midi/virtual-keyboard) - Recording MIDI input
+- [Quantization](/midi/quantization) - Timing correction tools

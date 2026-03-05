@@ -1,0 +1,267 @@
+---
+title: 'VstPlugin'
+description: 'Manages VST2 plugin loading, MIDI routing, and editor window lifecycle'
+---
+
+## Overview
+
+The `VstPlugin` class handles the loading and management of VST2 plugins in Lumix. It provides functionality for MIDI event routing, plugin window management, and VST lifecycle operations.
+
+## Enumerations
+
+### VstType
+
+```csharp
+public enum VstType
+{
+    VST,   // VST is an effect
+    VSTi   // VST is an instrument
+}
+```
+
+Defines whether a VST plugin is an audio effect or an instrument.
+
+## Properties
+
+<ResponseField name="PluginId" type="string" required>
+  Unique identifier for this plugin instance.
+  
+  Automatically generated as a GUID when the plugin is instantiated.
+</ResponseField>
+
+<ResponseField name="PluginName" type="string" required>
+  The display name of the plugin, derived from the plugin file name.
+</ResponseField>
+
+<ResponseField name="PluginType" type="VstType" required>
+  The type of VST plugin - either `VST` (effect) or `VSTi` (instrument).
+  
+  Determined automatically based on the VST plugin's capabilities.
+</ResponseField>
+
+<ResponseField name="PluginContext" type="VstPluginContext" required>
+  The underlying VST plugin context from the Jacobi.Vst library.
+  
+  Provides low-level access to VST commands and plugin information.
+</ResponseField>
+
+<ResponseField name="PluginWindow" type="Sdl2Window" required>
+  The SDL2 window hosting the plugin's editor interface.
+</ResponseField>
+
+## Constructor
+
+```csharp
+public VstPlugin(string pluginPath)
+```
+
+Creates a new VST plugin instance by loading the plugin from the specified path.
+
+<ParamField path="pluginPath" type="string" required>
+  The file system path to the VST plugin DLL.
+</ParamField>
+
+#### Example
+
+```csharp
+try
+{
+    var vstPlugin = new VstPlugin(@"C:\Program Files\VSTPlugins\MySynth.dll");
+    Console.WriteLine($"Loaded: {vstPlugin.PluginName}");
+    Console.WriteLine($"Type: {vstPlugin.PluginType}");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Failed to load plugin: {ex.Message}");
+}
+```
+
+## Methods
+
+### SendNoteOn
+
+```csharp
+public void SendNoteOn(int channel, int note, int velocity)
+```
+
+Sends a MIDI Note On message to the plugin.
+
+<ParamField path="channel" type="int" required>
+  The MIDI channel (0-15).
+</ParamField>
+
+<ParamField path="note" type="int" required>
+  The MIDI note number (0-127). Middle C is 60.
+</ParamField>
+
+<ParamField path="velocity" type="int" required>
+  The note velocity (0-127). Higher values indicate louder notes.
+</ParamField>
+
+#### Example
+
+```csharp
+var vstPlugin = new VstPlugin(pluginPath);
+
+// Play middle C with medium velocity
+vstPlugin.SendNoteOn(channel: 0, note: 60, velocity: 80);
+
+// Play higher notes
+vstPlugin.SendNoteOn(0, 64, 90); // E
+vstPlugin.SendNoteOn(0, 67, 85); // G
+```
+
+### SendNoteOff
+
+```csharp
+public void SendNoteOff(int channel, int note, int velocity)
+```
+
+Sends a MIDI Note Off message to the plugin.
+
+<ParamField path="channel" type="int" required>
+  The MIDI channel (0-15).
+</ParamField>
+
+<ParamField path="note" type="int" required>
+  The MIDI note number (0-127) to stop.
+</ParamField>
+
+<ParamField path="velocity" type="int" required>
+  The release velocity (0-127). Some plugins use this for release characteristics.
+</ParamField>
+
+#### Example
+
+```csharp
+// Stop playing middle C
+vstPlugin.SendNoteOff(channel: 0, note: 60, velocity: 64);
+```
+
+### SendSustainPedal
+
+```csharp
+public void SendSustainPedal(int channel, bool isPressed)
+```
+
+Sends a MIDI sustain pedal (CC 64) message to the plugin.
+
+<ParamField path="channel" type="int" required>
+  The MIDI channel (0-15).
+</ParamField>
+
+<ParamField path="isPressed" type="bool" required>
+  `true` to engage the sustain pedal, `false` to release it.
+</ParamField>
+
+#### Example
+
+```csharp
+// Press sustain pedal
+vstPlugin.SendSustainPedal(channel: 0, isPressed: true);
+
+// Play some notes while sustain is on
+vstPlugin.SendNoteOn(0, 60, 80);
+vstPlugin.SendNoteOff(0, 60, 64);
+
+// Release sustain pedal
+vstPlugin.SendSustainPedal(channel: 0, isPressed: false);
+```
+
+### OpenPluginWindow
+
+```csharp
+public void OpenPluginWindow()
+```
+
+Opens or recreates the plugin editor window if it was previously closed.
+
+The window position is preserved when reopening.
+
+#### Example
+
+```csharp
+var vstPlugin = new VstPlugin(pluginPath);
+
+// Open the plugin editor
+vstPlugin.OpenPluginWindow();
+
+// Window can be closed by user, then reopened
+vstPlugin.OpenPluginWindow(); // Will reopen at previous position
+```
+
+### Dispose
+
+```csharp
+public void Dispose(bool closeWindow = true)
+```
+
+Disposes of the plugin and optionally closes its editor window.
+
+<ParamField path="closeWindow" type="bool">
+  Whether to close the plugin window. Defaults to `true`.
+</ParamField>
+
+#### Example
+
+```csharp
+// Dispose and close window
+vstPlugin.Dispose();
+
+// Dispose but keep window open (for window handle reuse)
+vstPlugin.Dispose(closeWindow: false);
+```
+
+## Usage Example
+
+```csharp
+using Lumix.Plugins.VST;
+
+public class VstExample
+{
+    private VstPlugin _synth;
+
+    public void LoadAndPlaySynth()
+    {
+        // Load VST instrument
+        _synth = new VstPlugin(@"C:\VSTPlugins\MySynth.dll");
+        
+        if (_synth.PluginType == VstType.VSTi)
+        {
+            // Open the editor window
+            _synth.OpenPluginWindow();
+            
+            // Play a chord
+            _synth.SendNoteOn(0, 60, 100); // C
+            _synth.SendNoteOn(0, 64, 100); // E
+            _synth.SendNoteOn(0, 67, 100); // G
+            
+            await Task.Delay(2000);
+            
+            // Stop the chord
+            _synth.SendNoteOff(0, 60, 64);
+            _synth.SendNoteOff(0, 64, 64);
+            _synth.SendNoteOff(0, 67, 64);
+        }
+    }
+
+    public void Cleanup()
+    {
+        _synth?.Dispose();
+    }
+}
+```
+
+## Implementation Notes
+
+- The plugin window is created as an always-on-top, non-resizable window
+- The editor UI updates at approximately 60 FPS via the `EditorIdle` mechanism
+- Window minimize and maximize buttons are removed to prevent UI issues
+- The plugin type is automatically detected based on the `VstPluginFlags.IsSynth` flag
+- MIDI events are processed immediately through the plugin's command stub
+
+## See Also
+
+- [VstAudioProcessor](/api/plugins/vst-audio-processor) - Audio processing wrapper for VST plugins
+- [IAudioProcessor](/api/plugins/iaudio-processor) - Common plugin interface
+- [PluginChainSampleProvider](/api/plugins/plugin-chain-sample-provider) - Plugin chain management

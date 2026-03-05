@@ -1,0 +1,104 @@
+---
+title: Plugin System Overview
+description: Understanding Lumix's plugin architecture for audio processing
+---
+
+Lumix features a unified plugin architecture that supports both built-in effects and external VST2 plugins through a common interface. This design allows for seamless mixing of native and third-party audio processors in the signal chain.
+
+## Architecture
+
+The plugin system is built around the `IAudioProcessor` interface, which provides a consistent API for all audio processing components regardless of their implementation.
+
+### IAudioProcessor Interface
+
+All plugins in Lumix implement the `IAudioProcessor` interface:
+
+```csharp
+public interface IAudioProcessor
+{
+    bool Enabled { get; set; }
+    bool DeleteRequested { get; set; }
+    bool DuplicateRequested { get; set; }
+    
+    void Process(float[] input, float[] output, int samplesRead);
+    T? GetPlugin<T>() where T : class;
+    void Toggle();
+}
+```
+
+**Key Members:**
+
+- **`Enabled`** - Controls whether the plugin is active in the signal chain
+- **`Process()`** - The core audio processing method that transforms input samples to output
+- **`GetPlugin<T>()`** - Generic method to retrieve the underlying plugin implementation
+- **`Toggle()`** - Convenience method to enable/disable the plugin
+
+## Plugin Types
+
+<CardGroup cols={2}>
+  <Card title="Built-in Plugins" icon="sliders" href="/plugins/built-in-plugins">
+    Native effects including EQ and utility processors
+  </Card>
+  <Card title="VST2 Plugins" icon="plug" href="/plugins/vst-plugins">
+    External VST2 instrument and effect support
+  </Card>
+</CardGroup>
+
+## Processing Flow
+
+Plugins process audio in a consistent manner:
+
+1. **Input Buffer** - Receives interleaved stereo audio samples (Left, Right, Left, Right...)
+2. **Processing** - Transforms the audio according to plugin-specific algorithms
+3. **Output Buffer** - Writes processed samples back in the same format
+4. **Sample Count** - The `samplesRead` parameter indicates how many samples to process
+
+<Note>
+Audio buffers are interleaved stereo: `[L0, R0, L1, R1, L2, R2, ...]` where even indices are left channel and odd indices are right channel.
+</Note>
+
+## Plugin Management
+
+The plugin chain manages multiple processors in series:
+
+- **Instrument Slot** - A single VSTi (VST Instrument) can be assigned per track
+- **Effects Chain** - Multiple effect processors are applied in sequence
+- **Default Chain** - Every track includes a Utility plugin and SimpleEq by default
+
+### Lifecycle Management
+
+```csharp
+// Plugins can be flagged for deletion
+if (DeleteRequested) return; // Skip processing
+
+// Bypass disabled plugins
+if (!plugin.Enabled) continue;
+```
+
+## Integration
+
+Plugins integrate with Lumix's audio engine through:
+
+- **ISampleProvider** - NAudio's streaming audio interface
+- **Plugin Chain** - Serial processing of multiple effects
+- **Real-time Processing** - Low-latency audio callback processing
+
+<CardGroup cols={1}>
+  <Card title="Plugin Chain Management" icon="link" href="/plugins/plugin-chain">
+    Learn how plugins are organized and processed in the signal chain
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Steps>
+  <Step title="Explore Built-in Plugins">
+    Learn about the native effects included with Lumix
+  </Step>
+  <Step title="Load VST Plugins">
+    Understand how to host external VST2 plugins
+  </Step>
+  <Step title="Manage Plugin Chains">
+    Discover how to organize multiple processors
+  </Step>
+</Steps>

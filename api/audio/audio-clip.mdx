@@ -1,0 +1,358 @@
+---
+title: AudioClip
+description: Represents an audio clip on an audio track with waveform rendering and playback control
+---
+
+## Overview
+
+The `AudioClip` class extends the base `Clip` class to provide audio-specific functionality. It manages audio clip data, handles waveform visualization, and provides methods for clip manipulation such as splitting and resizing.
+
+## Constructor
+
+### AudioClip(AudioTrack audioTrack, AudioClipData clip, long startingTick = 0)
+
+Creates a new audio clip on the specified track.
+
+<ParamField path="audioTrack" type="AudioTrack" required>
+  The audio track this clip belongs to
+</ParamField>
+
+<ParamField path="clip" type="AudioClipData" required>
+  The audio clip data containing the audio file reader and wave channel
+</ParamField>
+
+<ParamField path="startingTick" type="long" default="0">
+  The starting position in ticks on the timeline
+</ParamField>
+
+```csharp
+var clipData = new AudioClipData("drums.wav");
+var audioClip = new AudioClip(audioTrack, clipData, startingTick: 1920);
+```
+
+## Properties
+
+<ResponseField name="Clip" type="AudioClipData">
+  The underlying audio clip data containing the audio file reader and wave format information.
+  
+  ```csharp
+  var duration = audioClip.Clip.AudioFileReader.TotalTime;
+  Console.WriteLine($"Duration: {duration.TotalSeconds} seconds");
+  ```
+</ResponseField>
+
+<ResponseField name="WaveFormImage" type="IntPtr">
+  Pointer to the waveform image texture for rendering.
+  
+  ```csharp
+  if (audioClip.WaveFormImage != IntPtr.Zero)
+  {
+      // Render waveform image
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  The name of the clip (derived from the audio file name without extension). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="Track" type="Track">
+  The track this clip belongs to. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool">
+  Whether the clip is enabled (active). When disabled, the clip is muted. Inherited from base `Clip` class.
+  
+  ```csharp
+  audioClip.Enabled = false; // Mute the clip
+  ```
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4">
+  The color of the clip as RGBA values. Inherited from base `Clip` class.
+  
+  ```csharp
+  audioClip.Color = new Vector4(0.8f, 0.4f, 0.1f, 1.0f);
+  ```
+</ResponseField>
+
+<ResponseField name="ClipWidth" type="float">
+  The width of the clip in pixels. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="StartTick" type="long">
+  The starting position of the clip on the timeline in ticks. Inherited from base `Clip` class.
+  
+  ```csharp
+  long position = audioClip.StartTick;
+  ```
+</ResponseField>
+
+<ResponseField name="EndTick" type="long">
+  The ending position of the clip on the timeline in ticks. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="DurationTicks" type="long">
+  The duration of the clip in ticks. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="StartMusicalTime" type="MusicalTime">
+  The starting position in musical time (Bars:Beats:Ticks). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="EndMusicalTime" type="MusicalTime">
+  The ending position in musical time (Bars:Beats:Ticks). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="DurationMusicalTime" type="MusicalTime">
+  The duration in musical time (Bars:Beats:Ticks). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="StartMarker" type="long">
+  The cutted portion in ticks from the start of the clip (trim start). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="EndMarker" type="long">
+  The cutted portion in ticks from the end of the clip (trim end). Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="ClipIsHovered" type="bool">
+  Whether the clip is currently being hovered by the mouse. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="MenuBarIsHovered" type="bool">
+  Whether the clip's menu bar is currently being hovered. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="HasPlayed" type="bool">
+  Whether the clip has been played during the current playback session. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="DeleteRequested" type="bool">
+  Flag indicating the clip should be deleted. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="DuplicateRequested" type="bool">
+  Flag indicating the clip should be duplicated. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="WantsToMove" type="bool">
+  Flag used to move the clip between tracks. Inherited from base `Clip` class.
+</ResponseField>
+
+<ResponseField name="Id" type="string">
+  Unique identifier (GUID) for the clip. Inherited from base `Clip` class.
+</ResponseField>
+
+## Methods
+
+### ResizeWaveformData()
+
+Resizes the waveform data to match the current clip width. This should be called when the clip is resized or the zoom level changes.
+
+```csharp
+// After zoom level changes
+audioClip.ResizeWaveformData();
+```
+
+### Split(float time)
+
+Splits the audio clip at the specified time position. This method is currently not implemented (commented out in the source).
+
+<ParamField path="time" type="float">
+  The time position in seconds where the clip should be split
+</ParamField>
+
+```csharp
+// Split clip at 2.5 seconds
+// audioClip.Split(2.5f); // Currently not implemented
+```
+
+### SetStartTick(long tick)
+
+Sets the starting position of the clip on the timeline.
+
+<ParamField path="tick" type="long">
+  The starting position in ticks
+</ParamField>
+
+```csharp
+audioClip.SetStartTick(3840); // Move to tick 3840
+```
+
+### GetStartTimeInMusicalTime()
+
+Gets the start time of the clip in musical time format (Bars:Beats:Ticks).
+
+```csharp
+MusicalTime startTime = audioClip.GetStartTimeInMusicalTime();
+Console.WriteLine($"{startTime.Bars}:{startTime.Beats}:{startTime.Ticks}");
+```
+
+### GetEndTimeInMusicalTime()
+
+Gets the end time of the clip in musical time format (Bars:Beats:Ticks).
+
+```csharp
+MusicalTime endTime = audioClip.GetEndTimeInMusicalTime();
+Console.WriteLine($"End: {endTime.Bars}:{endTime.Beats}:{endTime.Ticks}");
+```
+
+### GetDurationInMusicalTime()
+
+Gets the duration of the clip in musical time format (Bars:Beats:Ticks).
+
+```csharp
+MusicalTime duration = audioClip.GetDurationInMusicalTime();
+Console.WriteLine($"Length: {duration.Bars} bars, {duration.Beats} beats");
+```
+
+### GetDurationInSeconds()
+
+Gets the duration of the clip in seconds.
+
+```csharp
+double durationSeconds = audioClip.GetDurationInSeconds();
+Console.WriteLine($"Duration: {durationSeconds:F2} seconds");
+```
+
+### Play(AudioFileReader audioFile, float offset, float endOffset)
+
+Plays the audio clip with the specified offsets.
+
+<ParamField path="audioFile" type="AudioFileReader">
+  The audio file reader to play
+</ParamField>
+
+<ParamField path="offset" type="float">
+  The starting offset in the audio file
+</ParamField>
+
+<ParamField path="endOffset" type="float">
+  The ending offset in the audio file
+</ParamField>
+
+```csharp
+audioClip.Play(clipData.AudioFileReader, 0.0f, 0.0f);
+```
+
+### Render()
+
+Renders the clip in the arrangement view with waveform visualization. Inherited from base `Clip` class.
+
+```csharp
+audioClip.Render();
+```
+
+## Protected Methods
+
+### GetClipDuration()
+
+Calculates the duration of the clip in ticks based on the audio file's total time.
+
+```csharp
+protected override long GetClipDuration()
+{
+    return TimeLineV2.SecondsToTicks(_clip.AudioFileReader.TotalTime.TotalSeconds);
+}
+```
+
+### GetClipWidth()
+
+Calculates the width of the clip in pixels based on duration and current zoom level.
+
+```csharp
+protected override float GetClipWidth()
+{
+    return TimeLineV2.SecondsToTicks(_clip.AudioFileReader.TotalTime.TotalSeconds) 
+           * TimeLineV2.PixelsPerTick;
+}
+```
+
+### RenderClipContent(float menuBarHeight, float clipHeight)
+
+Renders the waveform content of the clip within the safe rendering area.
+
+<ParamField path="menuBarHeight" type="float">
+  The height of the menu bar in pixels
+</ParamField>
+
+<ParamField path="clipHeight" type="float">
+  The height of the clip content area in pixels
+</ParamField>
+
+### RenderClipContent(Vector2 pos, float width, float height)
+
+Renders the waveform content at a specific position with specific dimensions.
+
+<ParamField path="pos" type="Vector2">
+  The position to render at
+</ParamField>
+
+<ParamField path="width" type="float">
+  The width to render
+</ParamField>
+
+<ParamField path="height" type="float">
+  The height to render
+</ParamField>
+
+### OnClipDoubleClickLeft()
+
+Called when the clip is double-clicked. Currently has no implementation but can be overridden for custom behavior.
+
+## Usage Example
+
+```csharp
+using Lumix.Clips.AudioClips;
+using Lumix.Tracks.AudioTracks;
+using System.Numerics;
+
+// Create an audio track
+var drumTrack = new AudioTrack("Drums");
+
+// Load audio data
+var audioData = new AudioClipData("drums.wav");
+
+// Create an audio clip starting at bar 1
+var drumClip = new AudioClip(drumTrack, audioData, startingTick: 0);
+
+// Set clip color
+drumClip.Color = new Vector4(0.95f, 0.58f, 0.13f, 1.0f);
+
+// Add to track
+drumTrack.Clips.Add(drumClip);
+
+// Get clip information
+var startTime = drumClip.GetStartTimeInMusicalTime();
+var duration = drumClip.GetDurationInSeconds();
+Console.WriteLine($"Clip starts at {startTime.Bars}:{startTime.Beats}:{startTime.Ticks}");
+Console.WriteLine($"Duration: {duration:F2} seconds");
+
+// Move the clip to a different position
+drumClip.SetStartTick(7680); // Move to bar 5
+
+// Update waveform after zoom change
+drumClip.ResizeWaveformData();
+
+// Disable (mute) the clip
+drumClip.Enabled = false;
+
+// Check if clip is being hovered
+if (drumClip.ClipIsHovered)
+{
+    // Show tooltip or highlight
+}
+
+// Access the underlying audio data
+var sampleRate = drumClip.Clip.AudioFileReader.WaveFormat.SampleRate;
+var channels = drumClip.Clip.AudioFileReader.WaveFormat.Channels;
+Console.WriteLine($"Sample Rate: {sampleRate} Hz, Channels: {channels}");
+```
+
+## See Also
+
+- [AudioTrack](/api/audio/audio-track) - Audio track class
+- [AudioClipData](/api/audio/audio-clip-data) - Audio clip data container
+- [Clip](/api/core/clip) - Base clip class
+- [WaveformRenderer](/api/rendering/waveform-renderer) - Waveform visualization

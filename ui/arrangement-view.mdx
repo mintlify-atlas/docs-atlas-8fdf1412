@@ -1,0 +1,280 @@
+---
+title: "Arrangement View"
+description: "The main timeline-based workspace for arranging audio and MIDI clips"
+icon: "layer-group"
+---
+
+# Arrangement View
+
+The Arrangement View is the central workspace in Lumix where you compose, arrange, and edit your music. It provides a timeline-based interface for working with multiple tracks, placing clips, and managing your project's overall structure.
+
+<img
+  src="/images/arrangement-view-placeholder.png"
+  alt="Arrangement View showing multiple tracks with audio and MIDI clips"
+/>
+
+## Overview
+
+The Arrangement View displays all your tracks vertically, with time flowing horizontally from left to right. This familiar layout provides an intuitive workflow for music production, allowing you to see your entire project at a glance.
+
+<Note>
+  The Arrangement View automatically adjusts its width based on the longest clip in your project, ensuring you always have enough space to work.
+</Note>
+
+## Interface Components
+
+### Menu Bar
+
+At the top of the Arrangement View, you'll find quick-access buttons for common operations:
+
+- **+ Audio track** - Creates a new audio track at the bottom of your arrangement
+- **+ Midi track** - Creates a new MIDI track at the bottom of your arrangement
+
+### Timeline Ruler
+
+The timeline ruler displays bars and beats, helping you navigate and align your musical content:
+
+- Shows musical time in **Bars.Beats** format (e.g., "1.1", "2.3")
+- Automatically adjusts spacing based on zoom level for optimal readability
+- Minimum text spacing of 60 pixels prevents overcrowding
+
+### Track Lanes
+
+Each track occupies a horizontal lane containing:
+
+- **Arrangement Area** (left) - Where clips are placed and edited
+- **Track Controls** (right, 360px wide) - Volume, pan, and other track-specific controls
+
+<CardGroup cols={2}>
+  <Card title="Master Track" icon="crown">
+    Height: 70px - The final output stage for your mix
+  </Card>
+  <Card title="Audio/MIDI Tracks" icon="waveform">
+    Height: 125px - Individual instrument or audio channels
+  </Card>
+</CardGroup>
+
+## Working with Clips
+
+### Selecting Clips
+
+Clips can be selected by clicking on them in the arrangement area. Selected clips are tracked in the `SelectedClips` list and can be manipulated as a group.
+
+### Clip Operations
+
+Lumix provides several keyboard shortcuts for efficient clip editing:
+
+| Shortcut | Action |
+|----------|--------|
+| `Delete` | Delete selected clips |
+| `Ctrl + D` | Duplicate selected clips |
+| `0` (zero) | Toggle enable/disable for selected clips |
+| `Right Arrow` | Move clips forward by one bar (with grid snap) |
+| `Left Arrow` | Move clips backward by one bar (with grid snap) |
+
+<Warning>
+  Arrow key movements respect the current grid snap setting and will align clips to the nearest grid position.
+</Warning>
+
+### Timeline Positioning
+
+Click anywhere in the arrangement area to move the playback position:
+
+- **During playback** - Sets the playback start position
+- **While stopped** - Moves the playback cursor to the clicked position
+- Automatically snaps to the current grid setting
+
+## Zoom and Navigation
+
+### Horizontal Zoom
+
+Control the zoom level to work at different scales, from broad arrangement overview to precise sample-level editing:
+
+- **Ctrl + Mouse Wheel** - Zoom in/out at the mouse cursor position
+- **Zoom Range** - 0.05x to 2.0x (5% to 200%)
+- **Mouse-Centered Zooming** - The content under your cursor stays in place while zooming
+
+<Info>
+  When you zoom, the arrangement view intelligently maintains the position under your mouse cursor, making it easy to zoom into specific areas without losing your place.
+</Info>
+
+### Panning the View
+
+- **Middle Mouse Button + Drag** - Pan both horizontally and vertically
+- **Horizontal Scrollbar** - Navigate long arrangements
+
+### Waveform Optimization
+
+When zooming, audio clip waveforms automatically regenerate at the appropriate resolution for the current zoom level, ensuring optimal visual clarity without performance overhead.
+
+## Grid Snapping
+
+Right-click in the arrangement area to access the **Fixed Grid** menu, which controls how clips and timeline movements snap to the musical grid.
+
+### Grid Options
+
+<Tabs>
+  <Tab title="Bars">
+    - **8 Bars** - Very coarse, for overall song structure
+    - **4 Bars** - Verse/chorus level arrangement
+    - **2 Bars** - Phrase-level editing
+    - **1 Bar** - Single bar precision
+  </Tab>
+  <Tab title="Beats">
+    - **1/2** - Half notes
+    - **1/4** - Quarter notes (beats)
+    - **1/8** - Eighth notes
+    - **1/16** - Sixteenth notes
+    - **1/32** - Thirty-second notes
+  </Tab>
+  <Tab title="Off">
+    Disable grid snapping for free-form placement
+  </Tab>
+</Tabs>
+
+<Tip>
+  The currently active grid setting is indicated by a checkmark in the context menu.
+</Tip>
+
+## Track Management
+
+### Creating Tracks
+
+There are three ways to create new tracks:
+
+1. **Menu Bar Buttons** - Click **+ Audio track** or **+ Midi track**
+2. **Keyboard Shortcuts**:
+   - `Ctrl + T` - Create audio track after the currently selected track
+   - `Ctrl + Shift + T` - Create MIDI track after the currently selected track
+
+<Note>
+  New tracks are automatically given sequential names like "Audio Track 0", "Audio Track 1", etc.
+</Note>
+
+### Track Selection
+
+The currently selected track is indicated by:
+- A brighter background color in the arrangement area (0.26 vs 0.22 brightness)
+- A white vertical line (5px thick) on the left edge of the track controls
+
+Clicking on a track's control panel selects it, which is important for:
+- Determining where new tracks are inserted
+- Managing which track receives plugin drops from the sidebar
+- Keyboard shortcut operations
+
+### Disabled Tracks
+
+Tracks can be disabled, which:
+- Grays out the entire track visually
+- Prevents clips on that track from playing
+- Useful for temporarily muting complex arrangements or testing ideas
+
+## Visual Feedback
+
+### Track Colors
+
+Each track has an associated color that appears in:
+- The track's menu bar
+- The track's border
+- Visual distinction in the arrangement
+
+### Playback Cursor
+
+During playback, a visual cursor indicates the current playback position:
+- **Orange triangle** at the top of the timeline (RGB: 0.95, 0.58, 0.13)
+- **White vertical line** extending down through all tracks
+- Opacity: 0.8 for subtle but clear indication
+
+<Info>
+  The playback cursor only displays when the playback position is within the visible area of the arrangement.
+</Info>
+
+### Clip Playback
+
+When playback reaches a clip's start position, the clip automatically begins playing:
+- **Audio clips** - Start playback with time offset compensation
+- **MIDI clips** - Trigger MIDI events with BPM adjustment
+- Disabled clips are skipped automatically
+
+## Technical Details
+
+### Time System
+
+Lumix uses a tick-based timing system:
+- Time is measured in **ticks** (MIDI timing resolution)
+- PPQ (Pulses Per Quarter note) defines the tick resolution
+- Musical time conversions handle bars, beats, and subdivisions
+- Position calculations use `TimeLineV2.TimeToPosition()` and `TimeLineV2.PositionToTime()`
+
+### Layout Calculations
+
+The arrangement view dynamically calculates dimensions:
+
+```csharp
+// Arrangement area width (excludes 360px track controls)
+float arrangementWidth = totalWidth - 360;
+
+// Maximum clip length determines scrollable area
+float maxClipLength = clips.Max(clip => 
+    TimeLineV2.TimeToPosition(clip.StartTick) + clip.ClipWidth
+);
+
+// Ensure minimum width for empty projects
+if (maxClipLength < minLength)
+    maxClipLength = minLength;
+```
+
+### Performance Optimizations
+
+<AccordionGroup>
+  <Accordion title="Waveform Rendering">
+    Audio waveforms are only regenerated when the zoom level changes, and only for visible audio clips. This prevents unnecessary processing and maintains smooth interaction.
+  </Accordion>
+  
+  <Accordion title="Scroll Synchronization">
+    Scroll position is cached and synchronized between the arrangement area and track controls to prevent visual artifacts during zoom operations.
+  </Accordion>
+  
+  <Accordion title="Frame Skipping">
+    When zooming, track controls rendering is skipped for one frame to prevent visual glitches, with a `_zoomedThisFrame` flag controlling this behavior.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Organize with colors">
+    Use track colors to visually group related instruments (drums, bass, vocals, etc.)
+  </Step>
+  
+  <Step title="Use appropriate zoom levels">
+    - Overview: 0.1x - 0.3x for arranging song structure
+    - Editing: 0.5x - 1.0x for detailed clip work
+    - Precision: 1.5x - 2.0x for fine-tuning timing
+  </Step>
+  
+  <Step title="Leverage grid snapping">
+    Set grid to match your musical content (1/16 for drums, 1/4 for sustained instruments)
+  </Step>
+  
+  <Step title="Use keyboard shortcuts">
+    Master the clip manipulation shortcuts for faster workflow
+  </Step>
+</Steps>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Devices View" icon="plug" href="/ui/devices-view">
+    Manage plugins and effects for selected tracks
+  </Card>
+  <Card title="Tracks API" icon="code" href="/api/core/track">
+    Technical details about track implementation
+  </Card>
+  <Card title="Clips API" icon="code" href="/api/core/clip">
+    Understanding clip data structures
+  </Card>
+  <Card title="Timeline System" icon="clock" href="/core-concepts/timeline">
+    How Lumix manages time and synchronization
+  </Card>
+</CardGroup>

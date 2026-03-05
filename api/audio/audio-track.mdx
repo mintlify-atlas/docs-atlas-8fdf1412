@@ -1,0 +1,252 @@
+---
+title: AudioTrack
+description: Represents an audio track in the Lumix DAW that can contain audio clips and process audio through effects chains
+---
+
+## Overview
+
+The `AudioTrack` class extends the base `Track` class to provide audio-specific functionality. It manages audio clips, handles audio processing through an audio engine, and monitors audio levels in real-time.
+
+## Constructor
+
+### AudioTrack(string name)
+
+Creates a new audio track with the specified name.
+
+<ParamField path="name" type="string" required>
+  The name of the audio track
+</ParamField>
+
+```csharp
+var track = new AudioTrack("Lead Vocals");
+```
+
+## Properties
+
+<ResponseField name="TrackType" type="TrackType">
+  Returns `TrackType.Audio` to identify this as an audio track.
+  
+  ```csharp
+  if (track.TrackType == TrackType.Audio)
+  {
+      // Handle audio track
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="Engine" type="TrackEngine">
+  The audio engine responsible for processing audio through the track. Inherited from the base `Track` class.
+  
+  The engine handles:
+  - Audio playback
+  - Plugin chain processing
+  - Volume and pan control
+  - Real-time audio metering
+  
+  ```csharp
+  // Access the audio engine
+  var audioEngine = track.Engine;
+  ```
+</ResponseField>
+
+<ResponseField name="DraggedClip" type="AudioFileReader">
+  Gets the currently dragged audio clip file reader, or `null` if no clip is being dragged.
+  
+  ```csharp
+  if (track.DraggedClip != null)
+  {
+      Console.WriteLine($"Dragging: {track.DraggedClip.FileName}");
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  The name of the track. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the track (GUID). Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool">
+  Whether the track is enabled (unmuted). Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Solo" type="bool">
+  Whether the track is soloed. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="RecordOnStart" type="bool">
+  Whether the track should start recording when the record button is pressed. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Volume" type="float">
+  Track volume in decibels (typically -90dB to +6dB). Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Pan" type="float">
+  Track pan position (typically -50 to +50). Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4">
+  The color of the track as RGBA values. Inherited from base `Track` class.
+  
+  ```csharp
+  track.Color = new Vector4(0.8f, 0.2f, 0.2f, 1.0f); // Red color
+  ```
+</ResponseField>
+
+<ResponseField name="Clips" type="List<Clip>">
+  Collection of all clips on this track. Inherited from base `Track` class.
+  
+  ```csharp
+  foreach (var clip in track.Clips)
+  {
+      Console.WriteLine($"Clip: {clip.Name}");
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="TimeSelectionArea" type="TimeSelection">
+  The currently selected time range on the track. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="TrackTopPos" type="float">
+  The Y position of the track in the arrangement view. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="DragStartOffsetX" type="float">
+  The X offset stored when a clip drag operation begins. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="TrackHasCursor" type="bool">
+  Whether the mouse cursor is currently over the track. Inherited from base `Track` class.
+</ResponseField>
+
+<ResponseField name="IsAreaSelectionMode" type="bool">
+  Whether the track is in area selection mode. Inherited from base `Track` class.
+</ResponseField>
+
+## Methods
+
+### SetDraggedClip(AudioFileReader draggedClip)
+
+Sets the currently dragged audio clip.
+
+<ParamField path="draggedClip" type="AudioFileReader">
+  The audio file reader for the clip being dragged, or `null` to clear
+</ParamField>
+
+```csharp
+// Start dragging a clip
+var reader = new AudioFileReader("audio.wav");
+track.SetDraggedClip(reader);
+
+// Clear dragged clip
+track.SetDraggedClip(null);
+```
+
+### SetDraggedClip(Clip? draggedClip)
+
+Sets the currently dragged clip (base class method).
+
+<ParamField path="draggedClip" type="Clip?">
+  The clip being dragged, or `null` to clear
+</ParamField>
+
+```csharp
+track.SetDraggedClip(myClip);
+```
+
+### SetDragStartOffset(float dragStartOffsetX)
+
+Stores the X offset when a clip drag operation begins.
+
+<ParamField path="dragStartOffsetX" type="float">
+  The pixel offset from the clip's left edge where dragging started
+</ParamField>
+
+```csharp
+track.SetDragStartOffset(50.0f);
+```
+
+### RenderArrangement()
+
+Renders the track in the arrangement view, including clips, time selection, and visual feedback. Inherited from base `Track` class.
+
+```csharp
+track.RenderArrangement();
+```
+
+### RenderControls()
+
+Renders the track control panel with volume, pan, mute, solo, and other controls. Inherited from base `Track` class.
+
+```csharp
+track.RenderControls();
+```
+
+## Events
+
+### VolumeMeasured
+
+Raised when audio levels are measured on the track. This is set up automatically in the constructor.
+
+```csharp
+track.Engine.VolumeMeasured += (sender, e) =>
+{
+    float leftChannel = e.MaxSampleValues[0];
+    float rightChannel = e.MaxSampleValues[1];
+    Console.WriteLine($"L: {leftChannel:F2}, R: {rightChannel:F2}");
+};
+```
+
+## Usage Example
+
+```csharp
+using Lumix.Tracks.AudioTracks;
+using Lumix.Clips.AudioClips;
+using System.Numerics;
+
+// Create a new audio track
+var vocalTrack = new AudioTrack("Lead Vocals");
+
+// Customize the track color
+vocalTrack.Color = new Vector4(0.17f, 0.49f, 0.85f, 1.0f);
+
+// Create and add an audio clip
+var clipData = new AudioClipData("vocals.wav");
+var audioClip = new AudioClip(vocalTrack, clipData, startingTick: 0);
+vocalTrack.Clips.Add(audioClip);
+
+// Set volume (in decibels)
+vocalTrack.Volume = -6.0f;
+float linearVolume = (float)Math.Pow(10, vocalTrack.Volume / 20);
+vocalTrack.Engine.StereoSampleProvider.SetGain(linearVolume);
+
+// Set pan (-50 to +50)
+vocalTrack.Pan = 10.0f;
+float mappedPan = vocalTrack.Pan / 50f;
+vocalTrack.Engine.StereoSampleProvider.Pan = mappedPan;
+
+// Check if track is being hovered
+if (vocalTrack.TrackHasCursor)
+{
+    // Handle hover interaction
+}
+
+// Monitor audio levels
+vocalTrack.Engine.VolumeMeasured += (sender, e) =>
+{
+    float peakL = e.MaxSampleValues[0];
+    float peakR = e.MaxSampleValues[1];
+    // Update UI meters
+};
+```
+
+## See Also
+
+- [AudioClip](/api/audio/audio-clip) - Audio clip class for use with AudioTrack
+- [AudioClipData](/api/audio/audio-clip-data) - Audio clip data container
+- [Track](/api/core/track) - Base track class
+- [TrackEngine](/api/core/track-engine) - Audio processing engine

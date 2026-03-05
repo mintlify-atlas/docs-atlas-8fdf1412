@@ -1,0 +1,139 @@
+---
+title: 'IAudioProcessor'
+description: 'Interface to manage built-in and external plugins as one type'
+---
+
+## Overview
+
+The `IAudioProcessor` interface provides a unified API for managing both built-in and external audio plugins in Lumix. It defines the core functionality for audio processing, plugin state management, and lifecycle operations.
+
+## Properties
+
+<ResponseField name="Enabled" type="bool" required>
+  The plugin state. `true` if the plugin is on, `false` if the plugin is off.
+  
+  This property controls whether the plugin processes audio or passes it through unmodified.
+</ResponseField>
+
+<ResponseField name="DeleteRequested" type="bool" required>
+  Flag indicating whether the plugin should be deleted.
+  
+  When set to `true`, the plugin will skip processing and can be safely removed from the chain.
+</ResponseField>
+
+<ResponseField name="DuplicateRequested" type="bool" required>
+  Flag indicating whether the plugin should be duplicated.
+  
+  Used by the UI to manage plugin duplication operations.
+</ResponseField>
+
+## Methods
+
+### Process
+
+```csharp
+void Process(float[] input, float[] output, int samplesRead)
+```
+
+Processes audio as defined in the implementation. This is the core audio processing method called by the audio engine.
+
+<ParamField path="input" type="float[]" required>
+  The incoming unprocessed audio buffer containing interleaved stereo samples.
+</ParamField>
+
+<ParamField path="output" type="float[]" required>
+  The processed audio buffer where the plugin writes the processed samples.
+</ParamField>
+
+<ParamField path="samplesRead" type="int" required>
+  The number of samples to process from the input buffer.
+</ParamField>
+
+#### Example
+
+```csharp
+public class MyCustomProcessor : IAudioProcessor
+{
+    public bool Enabled { get; set; } = true;
+    public bool DeleteRequested { get; set; }
+    public bool DuplicateRequested { get; set; }
+
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        if (!Enabled)
+        {
+            // Pass through unprocessed
+            Array.Copy(input, output, samplesRead);
+            return;
+        }
+
+        // Apply custom processing
+        for (int i = 0; i < samplesRead; i++)
+        {
+            output[i] = input[i] * 0.5f; // Simple gain reduction
+        }
+    }
+
+    public T? GetPlugin<T>() where T : class => null;
+}
+```
+
+### GetPlugin
+
+```csharp
+T? GetPlugin<T>() where T : class
+```
+
+Generic method to retrieve the underlying plugin implementation if applicable.
+
+<ParamField path="T" type="Type" required>
+  The type of the underlying plugin to retrieve (e.g., `VstPlugin`).
+</ParamField>
+
+**Returns:** The underlying plugin instance cast to type `T`, or `null` if not available.
+
+#### Example
+
+```csharp
+IAudioProcessor processor = GetProcessorFromTrack();
+
+// Try to get the underlying VST plugin
+var vstPlugin = processor.GetPlugin<VstPlugin>();
+if (vstPlugin != null)
+{
+    Console.WriteLine($"VST Plugin: {vstPlugin.PluginName}");
+    vstPlugin.SendNoteOn(0, 60, 100);
+}
+```
+
+### Toggle
+
+```csharp
+public void Toggle()
+```
+
+Toggles the plugin state by inverting the `Enabled` property.
+
+This is a default interface implementation that can be called directly on any `IAudioProcessor` instance.
+
+#### Example
+
+```csharp
+IAudioProcessor plugin = GetPlugin();
+
+Console.WriteLine($"Before: {plugin.Enabled}"); // true
+plugin.Toggle();
+Console.WriteLine($"After: {plugin.Enabled}");  // false
+```
+
+## Implementation Notes
+
+- Implementations should check the `Enabled` property in the `Process` method and pass through audio unmodified when disabled
+- The `DeleteRequested` flag should be checked before processing to allow safe removal from the processing chain
+- Audio buffers use interleaved stereo format (L, R, L, R, ...)
+- The `GetPlugin<T>()` method enables access to platform-specific features while maintaining a unified interface
+
+## See Also
+
+- [VstAudioProcessor](/api/plugins/vst-audio-processor) - VST plugin implementation
+- [PluginChainSampleProvider](/api/plugins/plugin-chain-sample-provider) - Plugin chain management

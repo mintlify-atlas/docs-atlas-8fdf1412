@@ -1,0 +1,327 @@
+---
+title: 'PluginChainSampleProvider'
+description: 'Manages chains of audio effect plugins and instrument plugins with NAudio integration'
+---
+
+## Overview
+
+The `PluginChainSampleProvider` class implements NAudio's `ISampleProvider` interface to manage chains of audio processors. It handles both instrument plugins (VSTi) and effect plugins (VST), processing audio through the chain in order.
+
+## Properties
+
+<ResponseField name="PluginInstrument" type="IAudioProcessor" required>
+  The instrument plugin for this chain if it's a MIDI track.
+  
+  Only one instrument can be active per chain. Setting a new instrument replaces the existing one.
+</ResponseField>
+
+<ResponseField name="FxPlugins" type="List<IAudioProcessor>" required>
+  The list of effect plugins in the processing chain.
+  
+  Initialized with built-in utility and EQ plugins by default. Effects are processed in list order.
+</ResponseField>
+
+<ResponseField name="WaveFormat" type="WaveFormat" required>
+  The audio format of the sample provider, inherited from the source.
+</ResponseField>
+
+## Constructor
+
+```csharp
+public PluginChainSampleProvider(ISampleProvider source)
+```
+
+Creates a new plugin chain that processes audio from the specified source.
+
+<ParamField path="source" type="ISampleProvider" required>
+  The upstream audio source to process.
+</ParamField>
+
+#### Example
+
+```csharp
+using NAudio.Wave;
+using Lumix.Plugins;
+
+// Create a source (e.g., audio file reader)
+var audioFile = new AudioFileReader("track.wav");
+
+// Create a plugin chain
+var pluginChain = new PluginChainSampleProvider(audioFile);
+```
+
+## Methods
+
+### AddPlugin
+
+```csharp
+public void AddPlugin(IAudioProcessor plugin)
+```
+
+Adds a plugin to the chain. VSTi instruments replace the existing instrument, while effects are appended to the chain.
+
+<ParamField path="plugin" type="IAudioProcessor" required>
+  The audio processor to add to the chain.
+</ParamField>
+
+#### Behavior
+
+- **VSTi Instruments**: Replaces the current instrument and disposes of the old one
+- **VST Effects**: Appended to the end of the effects chain
+- **Built-in Plugins**: Added to the effects chain
+
+#### Example
+
+```csharp
+var pluginChain = new PluginChainSampleProvider(source);
+
+// Add an instrument (replaces any existing instrument)
+var synth = new VstPlugin(@"C:\VSTPlugins\Synth.dll");
+var synthProcessor = new VstAudioProcessor(synth);
+pluginChain.AddPlugin(synthProcessor);
+
+// Add effect plugins (appended to chain)
+var reverb = new VstPlugin(@"C:\VSTPlugins\Reverb.dll");
+var reverbProcessor = new VstAudioProcessor(reverb);
+pluginChain.AddPlugin(reverbProcessor);
+
+var delay = new VstPlugin(@"C:\VSTPlugins\Delay.dll");
+var delayProcessor = new VstAudioProcessor(delay);
+pluginChain.AddPlugin(delayProcessor);
+
+// Processing order: Synth → Utility → EQ → Reverb → Delay
+```
+
+### RemovePlugin
+
+```csharp
+public void RemovePlugin(IAudioProcessor target)
+```
+
+Removes a specific plugin from the chain and disposes of it if it's a VST plugin.
+
+<ParamField path="target" type="IAudioProcessor" required>
+  The audio processor to remove.
+</ParamField>
+
+#### Example
+
+```csharp
+// Remove a specific effect
+IAudioProcessor reverbProcessor = pluginChain.FxPlugins
+    .FirstOrDefault(p => p.GetPlugin<VstPlugin>()?.PluginName == "Reverb");
+
+if (reverbProcessor != null)
+{
+    pluginChain.RemovePlugin(reverbProcessor);
+}
+
+// Remove the instrument
+if (pluginChain.PluginInstrument != null)
+{
+    pluginChain.RemovePlugin(pluginChain.PluginInstrument);
+}
+```
+
+### RemoveAllPlugins
+
+```csharp
+public void RemoveAllPlugins()
+```
+
+Removes and disposes of all plugins in the chain, including the instrument and all effects.
+
+#### Example
+
+```csharp
+// Clear all plugins from the chain
+pluginChain.RemoveAllPlugins();
+
+Console.WriteLine($"Instrument: {pluginChain.PluginInstrument}"); // null
+Console.WriteLine($"Effects: {pluginChain.FxPlugins.Count}");     // 0
+```
+
+### Read
+
+```csharp
+public int Read(float[] buffer, int offset, int count)
+```
+
+Reads and processes audio samples through the plugin chain. This method is called by NAudio's playback engine.
+
+<ParamField path="buffer" type="float[]" required>
+  The buffer to fill with processed audio samples.
+</ParamField>
+
+<ParamField path="offset" type="int" required>
+  The offset in the buffer to start writing samples.
+</ParamField>
+
+<ParamField path="count" type="int" required>
+  The maximum number of samples to read.
+</ParamField>
+
+**Returns:** The actual number of samples read.
+
+#### Processing Order
+
+1. Read audio from the source
+2. Process through instrument (if present and enabled)
+3. Process through each effect in the chain (if enabled)
+4. Return processed audio
+
+#### Example
+
+```csharp
+// This is typically called by NAudio internally
+float[] audioBuffer = new float[4096];
+int samplesRead = pluginChain.Read(audioBuffer, 0, audioBuffer.Length);
+
+Console.WriteLine($"Processed {samplesRead} samples");
+```
+
+## Usage Example
+
+```csharp
+using NAudio.Wave;
+using Lumix.Plugins;
+using Lumix.Plugins.VST;
+
+public class TrackWithPlugins
+{
+    private PluginChainSampleProvider _pluginChain;
+    private WaveOutEvent _outputDevice;
+
+    public void SetupAudioTrack(string audioFilePath)
+    {
+        // Create audio source
+        var audioFile = new AudioFileReader(audioFilePath);
+        
+        // Create plugin chain
+        _pluginChain = new PluginChainSampleProvider(audioFile);
+        
+        // Add plugins
+        var compressor = new VstPlugin(@"C:\VSTPlugins\Compressor.dll");
+        _pluginChain.AddPlugin(new VstAudioProcessor(compressor));
+        
+        var eq = new VstPlugin(@"C:\VSTPlugins\EQ.dll");
+        _pluginChain.AddPlugin(new VstAudioProcessor(eq));
+        
+        var reverb = new VstPlugin(@"C:\VSTPlugins\Reverb.dll");
+        _pluginChain.AddPlugin(new VstAudioProcessor(reverb));
+        
+        // Setup playback
+        _outputDevice = new WaveOutEvent();
+        _outputDevice.Init(_pluginChain);
+        _outputDevice.Play();
+    }
+
+    public void SetupMidiTrack()
+    {
+        // Create a silent source for MIDI tracks
+        var silentSource = new SilenceProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2));
+        
+        // Create plugin chain
+        _pluginChain = new PluginChainSampleProvider(silentSource);
+        
+        // Add instrument
+        var synth = new VstPlugin(@"C:\VSTPlugins\Synth.dll");
+        var synthProcessor = new VstAudioProcessor(synth);
+        _pluginChain.AddPlugin(synthProcessor);
+        
+        // Add effects
+        var chorus = new VstPlugin(@"C:\VSTPlugins\Chorus.dll");
+        _pluginChain.AddPlugin(new VstAudioProcessor(chorus));
+        
+        // Setup playback
+        _outputDevice = new WaveOutEvent();
+        _outputDevice.Init(_pluginChain);
+        _outputDevice.Play();
+        
+        // Play some notes
+        synth.SendNoteOn(0, 60, 100);
+    }
+
+    public void TogglePlugin(int index)
+    {
+        if (index < _pluginChain.FxPlugins.Count)
+        {
+            _pluginChain.FxPlugins[index].Toggle();
+        }
+    }
+
+    public void ReplaceInstrument(string newSynthPath)
+    {
+        var newSynth = new VstPlugin(newSynthPath);
+        var newProcessor = new VstAudioProcessor(newSynth);
+        
+        // This will dispose the old instrument automatically
+        _pluginChain.AddPlugin(newProcessor);
+    }
+
+    public void Cleanup()
+    {
+        _outputDevice?.Stop();
+        _outputDevice?.Dispose();
+        _pluginChain?.RemoveAllPlugins();
+    }
+}
+```
+
+## Audio Processing Flow
+
+```
+┌──────────────┐
+│    Source    │ (Audio file, MIDI silence, etc.)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Instrument  │ (Optional VSTi - generates audio from MIDI)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│   Utility    │ (Built-in)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│     EQ       │ (Built-in)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Effect #1   │ (User-added)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Effect #2   │ (User-added)
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│  Effect #N   │ (User-added)
+└──────┬───────┘
+       │
+       ▼
+    Output
+```
+
+## Implementation Notes
+
+- Default plugins (Utility and EQ) are always present and process first
+- Only one instrument can be active per chain
+- Adding a new instrument automatically disposes of the old one
+- Effects are processed in the order they appear in the `FxPlugins` list
+- Disabled plugins are skipped during processing (audio passes through unchanged)
+- Plugin disposal is handled automatically when removing plugins
+- The chain uses temporary buffers to avoid modifying the original buffer during processing
+- VST plugin windows are reused when replacing instruments with the same window handle
+
+## See Also
+
+- [IAudioProcessor](/api/plugins/iaudio-processor) - Plugin interface
+- [VstAudioProcessor](/api/plugins/vst-audio-processor) - VST processor implementation
+- [VstPlugin](/api/plugins/vst-plugin) - VST plugin management

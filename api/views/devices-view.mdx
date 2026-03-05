@@ -1,0 +1,282 @@
+---
+title: "DevicesView"
+description: "Plugin and device management view for audio and MIDI tracks"
+---
+
+## Overview
+
+The `DevicesView` class is a static class that manages the plugin chain interface in Lumix. It provides UI for adding, removing, and organizing audio effects and virtual instruments on tracks.
+
+## Namespace
+
+```csharp
+Lumix.Views
+```
+
+## Properties
+
+<ResponseField name="SelectedTrack" type="Track">
+  The currently selected track whose devices are being displayed.
+  
+  ```csharp
+  public static Track SelectedTrack { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="SelectedPlugins" type="List<IAudioProcessor>">
+  List of currently selected plugins in the device chain.
+  
+  ```csharp
+  public static List<IAudioProcessor> SelectedPlugins { get; set; }
+  ```
+</ResponseField>
+
+## Methods
+
+### Render
+
+Renders the devices view interface and handles all plugin interactions.
+
+```csharp
+public static void Render()
+```
+
+**Example:**
+```csharp
+// In your main render loop
+DevicesView.Render();
+```
+
+## Features
+
+### Plugin Management
+
+The DevicesView provides the following plugin management capabilities:
+
+- **Add Plugins**: Drag and drop VST plugins (.dll files) or built-in plugins onto the view
+- **Remove Plugins**: Select plugins and press Delete
+- **Duplicate Plugins**: Select plugins and press Ctrl+D
+- **Reorder Plugins**: Select a single plugin and use Left/Right arrow keys to change position in chain
+- **Toggle Plugins**: Click the toggle button in the plugin header to enable/disable
+- **Open Plugin UI**: Click the wrench icon to open the plugin's native editor window
+
+### Plugin Types
+
+#### VST Plugins
+
+External VST2/VST3 plugins loaded from .dll files. The view displays:
+- Plugin name
+- VST type (Fx or Instrument)
+- Parameter count
+- Audio input/output channel count
+
+#### Built-in Plugins
+
+Native Lumix plugins with custom rendering:
+- Custom UI in the plugin rect
+- Integrated controls
+- Optimized performance
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Delete` | Remove selected plugins from chain |
+| `Ctrl+D` | Duplicate selected plugins |
+| `Left Arrow` | Move selected plugin earlier in chain |
+| `Right Arrow` | Move selected plugin later in chain |
+| `Middle Mouse` | Pan the devices view horizontally |
+
+## Usage Examples
+
+### Basic Usage
+
+```csharp
+using Lumix.Views;
+using Lumix.Views.Arrangement;
+
+// Select a track
+DevicesView.SelectedTrack = ArrangementView.Tracks[0];
+
+// Render the devices view
+DevicesView.Render();
+```
+
+### Adding Plugins Programmatically
+
+```csharp
+using Lumix.Plugins.VST;
+using Lumix.Views;
+
+// Add a VST plugin to the selected track
+if (DevicesView.SelectedTrack != null)
+{
+    var vst = new VstPlugin("path/to/plugin.dll");
+    var processor = new VstAudioProcessor(vst);
+    
+    DevicesView.SelectedTrack.Engine.PluginChainSampleProvider.AddPlugin(processor);
+}
+```
+
+### Working with Plugin Selection
+
+```csharp
+// Select multiple plugins
+var track = DevicesView.SelectedTrack;
+if (track != null)
+{
+    var fxPlugins = track.Engine.PluginChainSampleProvider.FxPlugins;
+    
+    // Select first two plugins
+    DevicesView.SelectedPlugins.Clear();
+    DevicesView.SelectedPlugins.AddRange(fxPlugins.Take(2));
+}
+
+// Check what's selected
+if (DevicesView.SelectedPlugins.Any())
+{
+    Console.WriteLine($"{DevicesView.SelectedPlugins.Count} plugins selected");
+}
+```
+
+### Removing Plugins
+
+```csharp
+using Lumix.Views;
+
+// Mark selected plugins for deletion
+foreach (var plugin in DevicesView.SelectedPlugins)
+{
+    plugin.DeleteRequested = true;
+}
+
+// The Render() method will handle the actual removal
+DevicesView.Render();
+```
+
+### Managing Instrument Plugins
+
+```csharp
+using Lumix.Tracks.MidiTracks;
+using Lumix.Views;
+
+// Add an instrument to a MIDI track
+if (DevicesView.SelectedTrack is MidiTrack midiTrack)
+{
+    var vsti = new VstPlugin("path/to/synth.dll");
+    if (vsti.PluginType == VstType.VSTi)
+    {
+        var processor = new VstAudioProcessor(vsti);
+        midiTrack.Engine.PluginChainSampleProvider.AddPlugin(processor);
+    }
+}
+```
+
+## Plugin Chain Order
+
+Plugins are processed in the following order:
+
+1. **Instrument Plugin** (MIDI tracks only) - Generates audio from MIDI
+2. **FX Plugins** - Processed left-to-right in the order displayed
+
+```csharp
+// Example chain on a MIDI track:
+// [VSTi Synth] -> [EQ] -> [Compressor] -> [Reverb]
+
+var track = DevicesView.SelectedTrack as MidiTrack;
+var chain = track.Engine.PluginChainSampleProvider;
+
+// Instrument (generates audio)
+var instrument = chain.PluginInstrument;
+
+// FX chain (processes audio)
+var effects = chain.FxPlugins;
+// effects[0] = EQ
+// effects[1] = Compressor
+// effects[2] = Reverb
+```
+
+## Drag and Drop
+
+The DevicesView supports drag and drop for adding plugins:
+
+### Supported Drop Sources
+
+- **VST Plugin Files**: .dll files containing VST2/VST3 plugins
+- **Built-in Plugins**: From the Lumix plugin browser
+
+### Drop Behavior
+
+```csharp
+// When dropping a plugin:
+// 1. Plugin type is validated (Audio FX for audio tracks, Instruments for MIDI tracks)
+// 2. Plugin is loaded and initialized
+// 3. Plugin is added to the end of the chain
+// 4. Error message shown if incompatible
+```
+
+### Example Drop Handling
+
+```csharp
+// The view automatically handles drops, but you can check the state:
+if (!string.IsNullOrEmpty(SidebarView.DraggedFilePath))
+{
+    // A plugin is being dragged
+    string extension = Path.GetExtension(SidebarView.DraggedFilePath);
+    if (extension == ".dll")
+    {
+        // VST plugin ready to drop
+    }
+}
+```
+
+## Plugin Rect Rendering
+
+Each plugin is rendered as a rectangular UI element:
+
+### VST Plugin Rect
+
+- **Header**: Plugin name, enable toggle, settings button
+- **Body**: Plugin information (type, parameters, I/O channels)
+- **Selection**: Visual highlight when selected
+- **Colors**: Custom theme colors for selected/unselected states
+
+### Built-in Plugin Rect
+
+- Custom rendering defined by the plugin
+- Can include knobs, sliders, buttons, etc.
+- Integrated into the same layout as VST plugins
+
+## Track Type Compatibility
+
+| Track Type | Instrument Plugins | FX Plugins | Max FX Count |
+|------------|-------------------|------------|-------------|
+| Audio Track | No | Yes | 6 |
+| MIDI Track | Yes (1 only) | Yes | 5 |
+
+## Error Handling
+
+```csharp
+// Attempting to add incompatible plugin shows error dialog
+if (vstPlugin.PluginType == VstType.VSTi && SelectedTrack.TrackType == TrackType.Audio)
+{
+    // Error: "Can't add vst here"
+    // Plugin is disposed and not added
+}
+
+if (SelectedTrack == null)
+{
+    // Error: "Can't add plugin here"
+    // No track selected
+}
+```
+
+## Notes
+
+- Only one instrument plugin can be active per MIDI track
+- FX plugins are processed in series (output of one feeds into next)
+- Plugin selection supports Ctrl+Click for multi-select
+- Clicking empty space deselects all plugins
+- The view automatically scrolls horizontally when many plugins are added
+- Plugin windows can be opened independently of the devices view
+- Deleted plugins are properly disposed to free resources

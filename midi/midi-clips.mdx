@@ -1,0 +1,322 @@
+---
+title: MIDI Clips
+description: Create, edit, and manage MIDI clips in Lumix for musical composition
+---
+
+## Overview
+
+MIDI clips contain note data, timing information, and control events. They can be created from scratch, imported from MIDI files, or recorded in real-time.
+
+## Creating MIDI Clips
+
+### From Scratch
+
+Double-click on a MIDI track to create an empty clip at the cursor position:
+
+```csharp
+public MidiClip(MidiTrack parent, long startingTime = 0)
+{
+    Track = parent;
+    Color = parent.Color;
+    _midiClipData = new MidiClipData();
+    _pianoRollEditor = new PianoRoll(this, Track as MidiTrack);
+    StartTick = startingTime;
+}
+```
+
+### From Time Selection
+
+Create a clip with a specific duration based on a time selection:
+
+```csharp
+public MidiClip(MidiTrack parent, TimeSelection time)
+{
+    Track = parent;
+    Color = parent.Color;
+    _midiClipData = new MidiClipData(time);
+    _pianoRollEditor = new PianoRoll(this, Track as MidiTrack);
+    StartTick = TimeLineV2.MusicalTimeToTicks(time.Start, true);
+}
+```
+
+### From MIDI File
+
+Import existing MIDI files:
+
+```csharp
+public MidiClip(MidiTrack parent, string filePath, long startingTime = 0)
+{
+    Track = parent;
+    Name = Path.GetFileNameWithoutExtension(filePath);
+    Color = parent.Color;
+    var midiFile = MidiFile.Read(filePath);
+    _midiClipData = new MidiClipData(midiFile);
+    _pianoRollEditor = new PianoRoll(this, Track as MidiTrack);
+    StartTick = startingTime;
+}
+```
+
+## MIDI Clip Data Structure
+
+The `MidiClipData` class manages the underlying MIDI file and note collection:
+
+```csharp
+public class MidiClipData
+{
+    public MidiFile MidiFile { get; set; }
+    public List<PNote> Notes { get; set; } = new();
+    public TempoMap TempoMap { get; set; }
+    
+    public MidiClipData(MidiFile midiFile)
+    {
+        MidiFile = midiFile;
+        foreach (var note in midiFile.GetNotes())
+        {
+            Notes.Add(new PNote(note));
+        }
+        TempoMap = midiFile.GetTempoMap();
+    }
+}
+```
+
+### Note Representation
+
+Each note is wrapped in a `PNote` object:
+
+```csharp
+public class PNote
+{
+    /// <summary>
+    /// Note data like time, length, velocity, pitch
+    /// </summary>
+    public Note Data { get; set; }
+    
+    /// <summary>
+    /// Note state (enabled/disabled)
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+}
+```
+
+## Clip Properties
+
+### Duration and Timing
+
+Clip duration is calculated from the MIDI data:
+
+```csharp
+protected override long GetClipDuration()
+{
+    return TimeLineV2.SecondsToTicks(
+        _midiClipData.MidiFile.GetDuration<MetricTimeSpan>().TotalSeconds, 
+        false
+    );
+}
+```
+
+### Width Calculation
+
+Clip width adapts to zoom level:
+
+```csharp
+protected override float GetClipWidth()
+{
+    return TimeLineV2.SecondsToTicks(
+        _midiClipData.MidiFile.GetDuration<MetricTimeSpan>().TotalSeconds, 
+        false
+    ) * TimeLineV2.PixelsPerTick;
+}
+```
+
+## Editing MIDI Clips
+
+### Opening the Piano Roll
+
+Double-click a clip to open it in the piano roll editor:
+
+```csharp
+protected override void OnClipDoubleClickLeft()
+{
+    ArrangementView.SelectedClips.Clear();
+    MidiClipView.SelectedMidiClip = this;
+    _pianoRollEditor._notes = _midiClipData.Notes.ToList();
+    BottomView.RenderedWindow = BottomViewWindows.MidiClipView;
+}
+```
+
+### Updating Clip Data
+
+Modify clip data programmatically:
+
+```csharp
+public void UpdateClipData(MidiClipData newdata)
+{
+    _midiClipData = newdata;
+}
+```
+
+## Visual Rendering
+
+Clips display MIDI notes in the arrangement view:
+
+```csharp
+protected override void RenderClipContent(float menuBarHeight, float clipHeight)
+{
+    MidiRenderer.RenderMidiData(
+        _midiClipData, 
+        ImGui.GetWindowPos() + new Vector2(0, menuBarHeight), 
+        ClipWidth, 
+        clipHeight, 
+        Track.Enabled
+    );
+}
+```
+
+## MIDI Clip Operations
+
+<Tabs>
+  <Tab title="Transform">
+    ### Time Stretching
+    
+    Resize clips to half or double their length:
+    
+    ```csharp
+    // Half speed (twice as long)
+    midiClip.MidiClipData.MidiFile.Resize(2);
+    
+    // Double speed (half as long)
+    midiClip.MidiClipData.MidiFile.Resize(0.5f);
+    ```
+    
+    Available in the MIDI Clip View panel.
+  </Tab>
+  
+  <Tab title="Duplicate">
+    ### Duplicating Clips
+    
+    Copy clips in the arrangement view with standard copy/paste shortcuts, or duplicate them by holding Ctrl while dragging.
+  </Tab>
+  
+  <Tab title="Split">
+    ### Splitting Clips
+    
+    Split clips at the playhead position to create separate regions for different musical sections.
+  </Tab>
+  
+  <Tab title="Merge">
+    ### Merging Clips
+    
+    Combine adjacent clips into a single clip to simplify your arrangement.
+  </Tab>
+</Tabs>
+
+## Clip View Panel
+
+The MIDI Clip View provides advanced editing features:
+
+```csharp
+public static class MidiClipView
+{
+    public enum MidiClipViewTabs
+    {
+        Notes,
+        Envelopes
+    }
+    
+    public static MidiClip SelectedMidiClip { get; set; }
+}
+```
+
+### Available Features
+
+<CardGroup cols={2}>
+  <Card title="Note Editing" icon="music">
+    Full piano roll editor with note drawing, selection, and modification.
+  </Card>
+  
+  <Card title="Time Operations" icon="clock">
+    Resize, reverse, and time-stretch MIDI data.
+  </Card>
+  
+  <Card title="Velocity Control" icon="slider">
+    Adjust velocity ranges for all notes or selected notes.
+  </Card>
+  
+  <Card title="Envelopes" icon="wave-square">
+    Automate MIDI CC parameters with envelope curves.
+  </Card>
+</CardGroup>
+
+### Clip Information Display
+
+View timing information in musical notation:
+
+```csharp
+string start = $"{SelectedMidiClip.StartMusicalTime.Bars}:{SelectedMidiClip.StartMusicalTime.Beats}:{SelectedMidiClip.StartMusicalTime.Ticks}";
+string end = $"{SelectedMidiClip.EndMusicalTime.Bars}:{SelectedMidiClip.EndMusicalTime.Beats}:{SelectedMidiClip.EndMusualTime.Ticks}";
+var length = SelectedMidiClip.EndMusicalTime - SelectedMidiClip.StartMusicalTime;
+string duration = $"{length.Bars}:{length.Beats}:{length.Ticks}";
+```
+
+## Working with Notes
+
+### Note Properties
+
+Each note contains:
+- **Pitch**: MIDI note number (0-127)
+- **Velocity**: Note intensity (0-127)
+- **Time**: Start position in ticks
+- **Length**: Duration in ticks
+- **Channel**: MIDI channel (0-15)
+
+### Note States
+
+Notes can be enabled or disabled:
+
+```csharp
+// Disable notes (mute without deleting)
+note.Enabled = false;
+
+// Re-enable notes
+note.Enabled = true;
+```
+
+Disabled notes appear dimmed in the piano roll and won't play during playback.
+
+<Warning>
+When updating clip data, always ensure the tempo map is synchronized to maintain correct timing.
+</Warning>
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Large MIDI Files">
+    Files with thousands of notes may cause slowdowns in the piano roll. Consider splitting into smaller clips or quantizing dense data.
+  </Accordion>
+  
+  <Accordion title="Real-time Updates">
+    The clip view updates in real-time as you edit. For complex operations, edits are batched to maintain smooth performance.
+  </Accordion>
+  
+  <Accordion title="Memory Usage">
+    Each clip maintains its own copy of MIDI data. Use linked clips (future feature) to share data between instances.
+  </Accordion>
+</AccordionGroup>
+
+## File Format Support
+
+Lumix supports standard MIDI file formats:
+- **Type 0**: Single track
+- **Type 1**: Multiple tracks (merged on import)
+- **Type 2**: Multiple independent patterns
+
+<Note>
+Imported MIDI files preserve tempo maps, time signatures, and control change events.
+</Note>
+
+## See Also
+
+- [MIDI Tracks](/midi/midi-tracks) - Managing MIDI tracks
+- [Piano Roll](/midi/piano-roll) - Detailed note editing
+- [Virtual Keyboard](/midi/virtual-keyboard) - MIDI input methods
+- [Time and Tempo](/core/time-and-tempo) - Understanding musical time

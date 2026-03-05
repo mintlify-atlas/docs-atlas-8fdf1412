@@ -1,0 +1,218 @@
+---
+title: Audio Tracks
+description: Understanding the audio track system in Lumix
+---
+
+## Overview
+
+Audio tracks are the fundamental building blocks for working with audio in Lumix. Each audio track provides a complete signal chain including mixing, plugin processing, volume/pan control, and metering.
+
+## AudioTrack Class
+
+The `AudioTrack` class (~/workspace/source/Lumix/Tracks/AudioTracks/AudioTrack.cs:9) extends the base `Track` class and provides audio-specific functionality.
+
+### Key Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `TrackType` | `TrackType` | Always returns `TrackType.Audio` |
+| `Engine` | `TrackAudioEngine` | The audio engine handling playback and processing |
+| `DraggedClip` | `AudioFileReader` | Currently dragged audio clip (for UI operations) |
+| `Name` | `string` | Track name |
+| `Color` | `Vector4` | Track color (randomly assigned on creation) |
+| `Clips` | `List<Clip>` | Audio clips contained in this track |
+
+### Construction
+
+```csharp
+public AudioTrack(string name)
+{
+    Name = name;
+    Vector4 trackCol = ImGuiTheme.GetRandomColor();
+    Color = trackCol;
+    Engine = new TrackAudioEngine(this, AudioSettings.SampleRate);
+    Engine.VolumeMeasured += (sender, e) =>
+    {
+        _leftChannelGain = e.MaxSampleValues[0];
+        _rightChannelGain = e.MaxSampleValues[1];
+    };
+    ArrangementView.MasterTrack.AudioEngine.AddTrack(Engine);
+}
+```
+
+### Audio Track Lifecycle
+
+<Steps>
+  <Step title="Track Creation">
+    When an audio track is created, it:
+    - Generates a random color for visual identification
+    - Initializes a `TrackAudioEngine` with the project's sample rate
+    - Subscribes to volume metering events for gain visualization
+    - Registers itself with the master track for final output routing
+  </Step>
+  
+  <Step title="Clip Management">
+    Audio clips can be:
+    - Dragged from the file browser onto the track
+    - Recorded directly into the track
+    - Duplicated, moved, and edited
+  </Step>
+  
+  <Step title="Signal Processing">
+    Audio flows through the track's engine:
+    1. Mixer combines all playing clips
+    2. Plugin chain processes the mixed signal
+    3. Stereo provider applies volume and pan
+    4. Metering provider measures levels
+    5. Track state provider handles mute/solo
+  </Step>
+</Steps>
+
+## Track Controls
+
+Each audio track includes the following controls (defined in base `Track` class):
+
+### Volume and Pan
+
+- **Volume**: Range from -90 dB to +6 dB
+  - Converted to linear gain: `float linearVolume = (float)Math.Pow(10, _volume / 20)`
+  - Double-click to reset to 0 dB
+
+- **Pan**: Range from -50 (left) to +50 (right)
+  - Mapped to stereo provider: `float mappedPan = _pan / 50f`
+  - Double-click to center
+
+### Track State
+
+| Control | Description |
+|---------|-------------|
+| **Enable/Disable** | Turns track on/off (mute) |
+| **Solo** | Mutes all other tracks |
+| **Arm Recording** | Enables recording when playback starts |
+
+### Gain Metering
+
+Each track displays a real-time stereo gain meter showing:
+- Left channel level (left half of meter)
+- Right channel level (right half of meter)
+- Smoothed visualization for better readability
+
+```csharp
+// Smoothing factor for gain display
+float smoothingFactor = 0.1f;
+_smoothLeftChannelGain = Lerp(_smoothLeftChannelGain, _leftChannelGain, smoothingFactor);
+_smoothRightChannelGain = Lerp(_smoothRightChannelGain, _rightChannelGain, smoothingFactor);
+```
+
+## Clip Operations
+
+### Adding Clips
+
+Clips can be added to a track by:
+
+1. **Drag and drop** from file browser
+2. **Recording** audio input
+3. **Duplicating** existing clips (Ctrl+D)
+
+### Supported Audio Formats
+
+Any format supported by NAudio's `AudioFileReader`, including:
+- WAV
+- MP3
+- AIFF
+- And other common formats
+
+<Warning>
+  Audio files must match the project's sample format. If the wave format doesn't match, you'll see a warning dialog: "Can't play [filename]"
+</Warning>
+
+## Track Duplication
+
+Audio tracks can be fully duplicated with all settings and clips:
+
+```csharp
+if (ImGui.MenuItem("Duplicate", "Ctrl+D"))
+{
+    var track = ArrangementView.NewAudioTrack(this.Name, ArrangementView.Tracks.IndexOf(this) + 1);
+    
+    // Copy all clips
+    foreach (AudioClip clip in Clips.Cast<AudioClip>())
+    {
+        var copy_clip = new AudioClip(track, clip.Clip, clip.StartTick);
+        track.Clips.Add(copy_clip);
+    }
+    
+    // Copy track settings
+    track._enabled = this.Enabled;
+    track._volume = this.Volume;
+    track._pan = this.Pan;
+    track._solo = this.Solo;
+    track._recordOnStart = this.RecordOnStart;
+    track._color = this.Color;
+    
+    // Copy plugin chain
+    foreach (var fxPlugin in this.Engine.PluginChainSampleProvider.FxPlugins)
+    {
+        // Plugin instances are recreated
+    }
+}
+```
+
+## Time Selection
+
+Tracks support time selection areas for:
+- Selecting multiple clips within a time range
+- Creating new MIDI clips (on MIDI tracks)
+- Visual reference during editing
+
+Time selection is displayed in musical time format: `Bars.Beats.Ticks`
+
+## Recording Audio
+
+When recording is armed and playback starts:
+
+1. Track engine creates a `WaveInEvent` device
+2. Audio is written to a temporary WAV file
+3. On stop, an `AudioClip` is created from the recorded file
+4. The clip is added to the track at the recording start position
+
+See [Audio Engine](/audio/audio-engine) for more details on the recording process.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Track Organization">
+    - Use descriptive track names
+    - Color-code related tracks for easier navigation
+    - Use track reordering (arrow buttons) to group related tracks
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Disable unused tracks to save CPU
+    - Use the solo feature instead of manually muting multiple tracks
+    - Monitor gain meters to avoid clipping
+  </Accordion>
+  
+  <Accordion title="Workflow">
+    - Double-click track controls to open device view
+    - Use Ctrl+Click on solo to solo multiple tracks
+    - Right-click for quick access to track operations
+  </Accordion>
+</AccordionGroup>
+
+## Related Classes
+
+- **Base Track Class**: `~/workspace/source/Lumix/Tracks/Track.cs`
+- **Audio Engine**: `~/workspace/source/Lumix/Tracks/AudioTracks/TrackAudioEngine.cs`
+- **Track Types**: Audio, MIDI, Group
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Audio Clips" icon="waveform" href="/audio/audio-clips">
+    Learn about audio clip management and editing
+  </Card>
+  <Card title="Audio Engine" icon="gear" href="/audio/audio-engine">
+    Deep dive into audio processing and playback
+  </Card>
+</CardGroup>

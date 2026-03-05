@@ -1,0 +1,350 @@
+---
+title: 'Clip'
+description: 'Base class for audio and MIDI clips in Lumix'
+---
+
+## Overview
+
+The `Clip` class is an abstract base class representing a clip in the Lumix DAW. Clips are regions of audio or MIDI data placed on tracks. They can be moved, resized, renamed, and duplicated.
+
+## Namespace
+
+```csharp
+Lumix.Clips
+```
+
+## Inheritance
+
+```csharp
+public abstract class Clip
+```
+
+## Properties
+
+### Identity Properties
+
+<ResponseField name="Id" type="string" required>
+  Unique identifier for the clip. Automatically generated using `Guid.NewGuid()`.
+  ```csharp
+  public string Id { get; }
+  ```
+</ResponseField>
+
+<ResponseField name="Name" type="string" required>
+  The display name of the clip.
+  ```csharp
+  public string Name { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Enabled" type="bool" required>
+  Whether the clip is active. Disabled clips are not played during playback.
+  ```csharp
+  public bool Enabled { get; set; }
+  ```
+  Default: `true`
+</ResponseField>
+
+### Track and Visual Properties
+
+<ResponseField name="Track" type="Track" required>
+  The track that contains this clip.
+  ```csharp
+  public Track Track { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="ClipWidth" type="float" required>
+  The width of the clip in pixels, calculated based on duration and zoom level.
+  ```csharp
+  public float ClipWidth { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="Color" type="Vector4" required>
+  RGBA color of the clip for visual identification.
+  ```csharp
+  public Vector4 Color { get; set; }
+  ```
+</ResponseField>
+
+### Time Properties
+
+<ResponseField name="StartTick" type="long" required>
+  The arrangement starting time of the clip in ticks.
+  ```csharp
+  public long StartTick { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="EndTick" type="long" required>
+  The arrangement ending time of the clip in ticks.
+  ```csharp
+  public long EndTick { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="DurationTicks" type="long" required>
+  The duration of the clip in ticks.
+  ```csharp
+  public long DurationTicks { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="StartMusicalTime" type="MusicalTime" required>
+  The arrangement starting time in musical notation (bars:beats:ticks).
+  ```csharp
+  public MusicalTime StartMusicalTime { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="EndMusicalTime" type="MusicalTime" required>
+  The arrangement ending time in musical notation (bars:beats:ticks).
+  ```csharp
+  public MusicalTime EndMusicalTime { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="DurationMusicalTime" type="MusicalTime" required>
+  The duration in musical notation (bars:beats:ticks).
+  ```csharp
+  public MusicalTime DurationMusicalTime { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="StartMarker" type="long" required>
+  The portion trimmed from the start of the clip content, in ticks.
+  ```csharp
+  public long StartMarker { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="EndMarker" type="long" required>
+  The portion trimmed from the end of the clip content, in ticks.
+  ```csharp
+  public long EndMarker { get; protected set; }
+  ```
+</ResponseField>
+
+### State Flags
+
+<ResponseField name="WantsToMove" type="bool" required>
+  Flag indicating the clip is being moved between tracks.
+  ```csharp
+  public bool WantsToMove { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="ClipIsHovered" type="bool" required>
+  Whether the mouse cursor is hovering over the clip (including menu bar).
+  ```csharp
+  public bool ClipIsHovered { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="MenuBarIsHovered" type="bool" required>
+  Whether the mouse cursor is hovering over the clip's menu bar specifically.
+  ```csharp
+  public bool MenuBarIsHovered { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="HasPlayed" type="bool" required>
+  Whether this clip has been triggered during the current playback session.
+  ```csharp
+  public bool HasPlayed { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="DeleteRequested" type="bool" required>
+  Flag to mark the clip for deletion.
+  ```csharp
+  public bool DeleteRequested { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="DuplicateRequested" type="bool" required>
+  Flag to request clip duplication.
+  ```csharp
+  public bool DuplicateRequested { get; set; }
+  ```
+</ResponseField>
+
+## Methods
+
+### Play (AudioFileReader)
+
+Triggers playback of an audio clip through the track engine.
+
+```csharp
+public void Play(AudioFileReader audioFile, float offset, float endOffset)
+```
+
+<ParamField path="audioFile" type="AudioFileReader" required>
+  The audio file to play.
+</ParamField>
+
+<ParamField path="offset" type="float" required>
+  Starting offset in the audio file (in seconds).
+</ParamField>
+
+<ParamField path="endOffset" type="float" required>
+  Ending offset in the audio file (in seconds).
+</ParamField>
+
+### Play (MidiFile)
+
+Triggers playback of a MIDI clip through the track engine.
+
+```csharp
+public void Play(MidiFile midiFile, float offset)
+```
+
+<ParamField path="midiFile" type="MidiFile" required>
+  The MIDI file to play.
+</ParamField>
+
+<ParamField path="offset" type="float" required>
+  Starting offset in the MIDI file (in seconds).
+</ParamField>
+
+### SetStartTick
+
+Sets the starting time of the clip on the timeline.
+
+```csharp
+public void SetStartTick(long tick)
+```
+
+<ParamField path="tick" type="long" required>
+  The start time in ticks.
+</ParamField>
+
+### GetStartTimeInMusicalTime
+
+Gets the clip's start time in musical notation.
+
+```csharp
+public MusicalTime GetStartTimeInMusicalTime()
+```
+
+**Returns**: `MusicalTime` - Start time as bars:beats:ticks
+
+### GetEndTimeInMusicalTime
+
+Gets the clip's end time in musical notation.
+
+```csharp
+public MusicalTime GetEndTimeInMusicalTime()
+```
+
+**Returns**: `MusicalTime` - End time as bars:beats:ticks
+
+### GetDurationInMusicalTime
+
+Gets the clip's duration in musical notation.
+
+```csharp
+public MusicalTime GetDurationInMusicalTime()
+```
+
+**Returns**: `MusicalTime` - Duration as bars:beats:ticks
+
+### GetDurationInSeconds
+
+Gets the clip's duration in seconds.
+
+```csharp
+public double GetDurationInSeconds()
+```
+
+**Returns**: `double` - Duration in seconds
+
+### Render
+
+Renders the clip in the arrangement view, handling user interactions.
+
+```csharp
+public void Render()
+```
+
+This method handles:
+- Clip visualization
+- Dragging and dropping
+- Selection
+- Context menu
+- Rename functionality
+
+## Abstract Methods
+
+These methods must be implemented by derived classes:
+
+### GetClipDuration
+
+```csharp
+protected abstract long GetClipDuration()
+```
+
+Returns the total duration of the clip content in ticks.
+
+### GetClipWidth
+
+```csharp
+protected abstract float GetClipWidth()
+```
+
+Calculates and returns the visual width in pixels.
+
+### RenderClipContent
+
+```csharp
+protected abstract void RenderClipContent(float menuBarHeight, float clipHeight)
+protected abstract void RenderClipContent(Vector2 pos, float width, float height)
+```
+
+Renders the clip's visual content (waveform, MIDI notes, etc.).
+
+### OnClipDoubleClickLeft
+
+```csharp
+protected abstract void OnClipDoubleClickLeft()
+```
+
+Handles double-click events on the clip.
+
+## Example Usage
+
+```csharp
+// Creating an audio clip
+var audioClipData = new AudioClipData("drums.wav");
+var audioClip = new AudioClip(audioTrack, audioClipData, startTick: 0);
+audioClip.Color = new Vector4(0.8f, 0.3f, 0.2f, 1.0f);
+audioTrack.Clips.Add(audioClip);
+
+// Creating a MIDI clip
+var midiClip = new MidiClip(midiTrack, "melody.mid", startTick: 1920);
+midiClip.Enabled = true;
+midiTrack.Clips.Add(midiClip);
+
+// Getting clip timing information
+MusicalTime startTime = audioClip.GetStartTimeInMusicalTime();
+MusicalTime duration = audioClip.GetDurationInMusicalTime();
+double durationSeconds = audioClip.GetDurationInSeconds();
+
+Console.WriteLine($"Clip starts at {startTime.Bars}:{startTime.Beats}:{startTime.Ticks}");
+Console.WriteLine($"Duration: {duration.Bars} bars, {durationSeconds:F2} seconds");
+
+// Moving a clip
+audioClip.SetStartTick(3840); // Move to bar 3 (assuming 4/4 time, 480 PPQ)
+```
+
+## Derived Classes
+
+- **AudioClip**: For audio files (WAV, MP3, etc.)
+- **MidiClip**: For MIDI data
+
+## See Also
+
+- [Track](/api/core/track) - Container for clips
+- [MusicalTime](/api/core/musical-time) - Time representation
+- [TrackEngine](/api/core/track-engine) - Audio playback engine

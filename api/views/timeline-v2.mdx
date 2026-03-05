@@ -1,0 +1,417 @@
+---
+title: "TimeLineV2"
+description: "Timeline management class for playback, time conversion, and musical time calculations"
+---
+
+## Overview
+
+The `TimeLineV2` class is a static class that manages timeline playback, time conversions between ticks/seconds/pixels, and musical time calculations in Lumix. It provides the core timing functionality for the DAW.
+
+## Namespace
+
+```csharp
+Lumix.Views.Arrangement
+```
+
+## Constants
+
+<ResponseField name="PPQ" type="int" default="960">
+  Pulses Per Quarter note - the resolution of the timeline.
+  
+  ```csharp
+  public const int PPQ = 960;
+  ```
+</ResponseField>
+
+## Properties
+
+<ResponseField name="BeatsPerBar" type="float" default="4">
+  Number of beats per bar. Represents the time signature denominator.
+  
+  ```csharp
+  public static float BeatsPerBar { get; set; }
+  ```
+</ResponseField>
+
+<ResponseField name="PixelsPerTick" type="float">
+  Conversion factor from ticks to screen pixels, based on current zoom level.
+  
+  ```csharp
+  public static float PixelsPerTick { get; }
+  ```
+  
+  Calculated as: `0.05f * ArrangementView.Zoom`
+</ResponseField>
+
+## Playback Methods
+
+### StartPlayback
+
+Starts timeline playback from the current position.
+
+```csharp
+public static void StartPlayback()
+```
+
+**Example:**
+```csharp
+// Start playback
+TimeLineV2.StartPlayback();
+```
+
+### StopPlayback
+
+Stops timeline playback and optionally resets to the beginning.
+
+```csharp
+public static void StopPlayback(bool moveToStart = false)
+```
+
+<ParamField path="moveToStart" type="bool" default="false">
+  If true, resets playback position to tick 0. If false, maintains current position.
+</ParamField>
+
+**Example:**
+```csharp
+// Stop and stay at current position
+TimeLineV2.StopPlayback();
+
+// Stop and return to start
+TimeLineV2.StopPlayback(moveToStart: true);
+```
+
+### IsPlaying
+
+Checks if the timeline is currently playing.
+
+```csharp
+public static bool IsPlaying()
+```
+
+**Returns:** `true` if playback is active, `false` otherwise
+
+**Example:**
+```csharp
+if (TimeLineV2.IsPlaying())
+{
+    // Update playback UI
+}
+```
+
+### UpdatePlayback
+
+Updates the current tick position during playback. Should be called each frame.
+
+```csharp
+public static void UpdatePlayback()
+```
+
+**Example:**
+```csharp
+// In your render loop
+TimeLineV2.UpdatePlayback();
+```
+
+## Time Position Methods
+
+### GetCurrentTick
+
+Gets the current playback position in ticks.
+
+```csharp
+public static long GetCurrentTick()
+```
+
+**Returns:** Current position in ticks
+
+**Example:**
+```csharp
+long currentTick = TimeLineV2.GetCurrentTick();
+Console.WriteLine($"Current position: {currentTick} ticks");
+```
+
+### SetCurrentTick
+
+Sets the current playback position in ticks.
+
+```csharp
+public static void SetCurrentTick(long ticks)
+```
+
+<ParamField path="ticks" type="long" required>
+  The tick position to set
+</ParamField>
+
+**Example:**
+```csharp
+// Jump to bar 5
+long bar5Ticks = 5 * 4 * TimeLineV2.PPQ;
+TimeLineV2.SetCurrentTick(bar5Ticks);
+```
+
+### GetLastTickStart
+
+Gets the tick position where playback last started.
+
+```csharp
+public static long GetLastTickStart()
+```
+
+**Returns:** Starting tick position of current/last playback
+
+### SetLastTickStart
+
+Sets the tick position for playback start.
+
+```csharp
+public static void SetLastTickStart(long ticks)
+```
+
+<ParamField path="ticks" type="long" required>
+  The tick position to set as playback start
+</ParamField>
+
+## Time Conversion Methods
+
+### TicksToSeconds
+
+Converts ticks to seconds based on current or default tempo.
+
+```csharp
+public static double TicksToSeconds(long ticks, bool useTempo = true)
+```
+
+<ParamField path="ticks" type="long" required>
+  Number of ticks to convert
+</ParamField>
+
+<ParamField path="useTempo" type="bool" default="true">
+  If true, uses current project tempo. If false, uses default 120 BPM.
+</ParamField>
+
+**Returns:** Time in seconds
+
+**Example:**
+```csharp
+// Convert one bar to seconds at current tempo
+long oneBar = 4 * TimeLineV2.PPQ;
+double seconds = TimeLineV2.TicksToSeconds(oneBar);
+```
+
+### SecondsToTicks
+
+Converts seconds to ticks based on current or default tempo.
+
+```csharp
+public static long SecondsToTicks(double seconds, bool useTempo = true)
+```
+
+<ParamField path="seconds" type="double" required>
+  Number of seconds to convert
+</ParamField>
+
+<ParamField path="useTempo" type="bool" default="true">
+  If true, uses current project tempo. If false, uses default 120 BPM.
+</ParamField>
+
+**Returns:** Time in ticks
+
+**Example:**
+```csharp
+// Convert 5 seconds to ticks
+long ticks = TimeLineV2.SecondsToTicks(5.0);
+```
+
+### TimeToPosition
+
+Converts ticks to horizontal pixel position.
+
+```csharp
+public static float TimeToPosition(long ticks)
+```
+
+<ParamField path="ticks" type="long" required>
+  Number of ticks to convert
+</ParamField>
+
+**Returns:** Horizontal position in pixels
+
+**Example:**
+```csharp
+long clipStart = 960 * 4; // One bar
+float xPosition = TimeLineV2.TimeToPosition(clipStart);
+```
+
+### PositionToTime
+
+Converts horizontal pixel position to ticks.
+
+```csharp
+public static long PositionToTime(float x)
+```
+
+<ParamField path="x" type="float" required>
+  Horizontal position in pixels
+</ParamField>
+
+**Returns:** Time in ticks
+
+**Example:**
+```csharp
+float mouseX = ImGui.GetMousePos().X;
+long tickAtMouse = TimeLineV2.PositionToTime(mouseX);
+```
+
+### TicksToPixels
+
+Converts ticks directly to pixel width.
+
+```csharp
+public static float TicksToPixels(long ticks)
+```
+
+<ParamField path="ticks" type="long" required>
+  Number of ticks to convert
+</ParamField>
+
+**Returns:** Width in pixels
+
+**Example:**
+```csharp
+long clipLength = 960 * 4; // One bar
+float clipWidth = TimeLineV2.TicksToPixels(clipLength);
+```
+
+## Musical Time Methods
+
+### TicksToMusicalTime
+
+Converts ticks to musical time notation (bars:beats:ticks).
+
+```csharp
+public static MusicalTime TicksToMusicalTime(long ticks, bool applyOffset = false)
+```
+
+<ParamField path="ticks" type="long" required>
+  Number of ticks to convert
+</ParamField>
+
+<ParamField path="applyOffset" type="bool" default="false">
+  If true, starts counting from 1:1:1 instead of 0:0:0
+</ParamField>
+
+**Returns:** `MusicalTime` struct with Bars, Beats, and Ticks
+
+**Example:**
+```csharp
+long position = 960 * 8; // Two bars
+var musicalTime = TimeLineV2.TicksToMusicalTime(position, applyOffset: true);
+Console.WriteLine($"{musicalTime.Bars}:{musicalTime.Beats}:{musicalTime.Ticks}");
+// Output: 3:1:1 (bar 3, beat 1, tick 1)
+```
+
+### MusicalTimeToTicks
+
+Converts musical time notation to ticks.
+
+```csharp
+public static long MusicalTimeToTicks(MusicalTime musicalTime, bool applyOffset = false)
+```
+
+<ParamField path="musicalTime" type="MusicalTime" required>
+  Musical time with Bars, Beats, and Ticks
+</ParamField>
+
+<ParamField path="applyOffset" type="bool" default="false">
+  If true, treats input as 1-indexed (1:1:1 = tick 0)
+</ParamField>
+
+**Returns:** Time in ticks
+
+**Example:**
+```csharp
+var musicalTime = new MusicalTime(5, 2, 480); // Bar 5, beat 2, tick 480
+long ticks = TimeLineV2.MusicalTimeToTicks(musicalTime);
+```
+
+### MusicalTimeToPixels
+
+Converts musical time directly to pixel position.
+
+```csharp
+public static float MusicalTimeToPixels(MusicalTime musicalTime)
+```
+
+<ParamField path="musicalTime" type="MusicalTime" required>
+  Musical time to convert
+</ParamField>
+
+**Returns:** Position in pixels
+
+**Example:**
+```csharp
+var time = new MusicalTime(4, 1, 0); // Bar 4, beat 1
+float xPos = TimeLineV2.MusicalTimeToPixels(time);
+```
+
+## Grid Methods
+
+### SnapToGrid
+
+Snaps a tick position to the nearest grid line based on `BeatsPerBar`.
+
+```csharp
+public static long SnapToGrid(long tick)
+```
+
+<ParamField path="tick" type="long" required>
+  Tick position to snap
+</ParamField>
+
+**Returns:** Snapped tick position
+
+**Example:**
+```csharp
+// Snap mouse position to grid
+long mouseTick = TimeLineV2.PositionToTime(mouseX);
+long snappedTick = TimeLineV2.SnapToGrid(mouseTick);
+TimeLineV2.SetCurrentTick(snappedTick);
+```
+
+## Usage Example
+
+```csharp
+using Lumix.Views.Arrangement;
+
+// Start playback
+TimeLineV2.SetCurrentTick(0);
+TimeLineV2.StartPlayback();
+
+// Update in render loop
+while (running)
+{
+    TimeLineV2.UpdatePlayback();
+    
+    // Get current position
+    long currentTick = TimeLineV2.GetCurrentTick();
+    var musicalTime = TimeLineV2.TicksToMusicalTime(currentTick, applyOffset: true);
+    
+    // Display time
+    Console.WriteLine($"Position: {musicalTime.Bars}:{musicalTime.Beats}:{musicalTime.Ticks}");
+    
+    // Convert to seconds for display
+    double seconds = TimeLineV2.TicksToSeconds(currentTick);
+    Console.WriteLine($"Time: {seconds:F2}s");
+}
+
+// Stop playback
+TimeLineV2.StopPlayback();
+```
+
+## Notes
+
+- All time calculations are based on PPQ = 960 (high resolution)
+- Musical time uses standard 4/4 time signature by default
+- The `useTempo` parameter allows for tempo-independent calculations
+- Grid snapping respects the current `BeatsPerBar` setting
+- Pixel conversions automatically adjust based on arrangement zoom level

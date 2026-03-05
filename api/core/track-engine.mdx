@@ -1,0 +1,272 @@
+---
+title: 'TrackEngine'
+description: 'Abstract audio engine class for track processing and playback'
+---
+
+## Overview
+
+The `TrackEngine` class is an abstract base class that manages the audio processing chain for a track. It handles audio mixing, plugin processing, stereo imaging, metering, and clip playback. Each track has its own engine instance.
+
+## Namespace
+
+```csharp
+Lumix.Tracks
+```
+
+## Inheritance
+
+```csharp
+public abstract class TrackEngine : IDisposable
+```
+
+## Properties
+
+<ResponseField name="Mixer" type="MixingSampleProvider" required>
+  The mixing sample provider that combines multiple audio sources.
+  ```csharp
+  public MixingSampleProvider Mixer { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="PluginChainSampleProvider" type="PluginChainSampleProvider" required>
+  The plugin chain processor that routes audio through VST and built-in effects/instruments.
+  ```csharp
+  public PluginChainSampleProvider PluginChainSampleProvider { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="StereoSampleProvider" type="StereoSampleProvider" required>
+  Handles stereo gain, panning, and balance for the track.
+  ```csharp
+  public StereoSampleProvider StereoSampleProvider { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="TrackStateSampleProvider" type="TrackStateSampleProvider" required>
+  Manages track state (mute, solo, etc.) and controls audio flow.
+  ```csharp
+  public TrackStateSampleProvider TrackStateSampleProvider { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="MeteringSampleProvider" type="MeteringSampleProvider" required>
+  Monitors audio levels and provides volume metering data.
+  ```csharp
+  public MeteringSampleProvider MeteringSampleProvider { get; protected set; }
+  ```
+</ResponseField>
+
+<ResponseField name="IsRecording" type="bool" required>
+  Indicates whether the track is currently recording.
+  ```csharp
+  public bool IsRecording { get; protected set; }
+  ```
+</ResponseField>
+
+## Events
+
+### VolumeMeasured
+
+Fired when the audio level is measured, providing real-time metering data.
+
+```csharp
+public abstract event EventHandler<StreamVolumeEventArgs> VolumeMeasured
+```
+
+**Event Args**: `StreamVolumeEventArgs` containing volume level information
+
+## Methods
+
+### GetTrackAudio
+
+Returns the final processed audio output from the track.
+
+```csharp
+public ISampleProvider GetTrackAudio()
+```
+
+**Returns**: `ISampleProvider` - The track's final sample provider (TrackStateSampleProvider)
+
+**Example**:
+```csharp
+var trackOutput = track.Engine.GetTrackAudio();
+masterMixer.AddMixerInput(trackOutput);
+```
+
+### Fire (AudioFileReader)
+
+Triggers playback of an audio clip on this track.
+
+```csharp
+public abstract void Fire(AudioFileReader audioFile, float offset, float endOffset)
+```
+
+<ParamField path="audioFile" type="AudioFileReader" required>
+  The audio file to play.
+</ParamField>
+
+<ParamField path="offset" type="float" required>
+  The start offset within the audio file (in seconds).
+</ParamField>
+
+<ParamField path="endOffset" type="float" required>
+  The end offset within the audio file (in seconds).
+</ParamField>
+
+**Example**:
+```csharp
+var audioReader = new AudioFileReader("drums.wav");
+track.Engine.Fire(audioReader, offset: 0.5f, endOffset: 0.0f);
+```
+
+### Fire (MidiFile)
+
+Triggers playback of a MIDI clip on this track.
+
+```csharp
+public abstract void Fire(MidiFile midiFile, float offset, float endOffset)
+```
+
+<ParamField path="midiFile" type="MidiFile" required>
+  The MIDI file to play.
+</ParamField>
+
+<ParamField path="offset" type="float" required>
+  The start offset within the MIDI file (in seconds).
+</ParamField>
+
+<ParamField path="endOffset" type="float" required>
+  The end offset within the MIDI file (in seconds).
+</ParamField>
+
+**Example**:
+```csharp
+var midiFile = MidiFile.Read("melody.mid");
+midiTrack.Engine.Fire(midiFile, offset: 0.0f, endOffset: 0.0f);
+```
+
+### StartRecording
+
+Begins recording audio or MIDI data on this track.
+
+```csharp
+public abstract void StartRecording()
+```
+
+**Example**:
+```csharp
+if (track.RecordOnStart)
+{
+    track.Engine.StartRecording();
+}
+```
+
+### StopRecording
+
+Stops recording and creates a clip with the recorded data.
+
+```csharp
+public abstract void StopRecording(Track destTrack)
+```
+
+<ParamField path="destTrack" type="Track" required>
+  The track where the recorded clip will be created.
+</ParamField>
+
+**Example**:
+```csharp
+track.Engine.StopRecording(track);
+```
+
+### StopSounds
+
+Stops all currently playing sounds on this track.
+
+```csharp
+public abstract void StopSounds()
+```
+
+**Example**:
+```csharp
+// Called when timeline stops
+foreach (var track in tracks)
+{
+    track.Engine.StopSounds();
+}
+```
+
+### Dispose
+
+Releases resources used by the track engine.
+
+```csharp
+public void Dispose()
+```
+
+## Audio Processing Chain
+
+The typical signal flow through a TrackEngine is:
+
+1. **Mixer** - Combines multiple clip sources
+2. **PluginChainSampleProvider** - Processes through VST/built-in plugins
+3. **StereoSampleProvider** - Applies gain and panning
+4. **MeteringSampleProvider** - Measures audio levels
+5. **TrackStateSampleProvider** - Applies mute/solo state
+6. **Output** - Sent to master mixer or routing destination
+
+```
+[Clips] → [Mixer] → [Plugins] → [Stereo/Pan] → [Metering] → [Track State] → [Output]
+```
+
+## Example Usage
+
+```csharp
+// Creating a track engine (typically done internally by track constructors)
+var audioTrackEngine = new AudioTrackEngine(outputDevice);
+
+// Adding a plugin to the chain
+var vstPlugin = new VstPlugin("path/to/plugin.dll");
+var vstProcessor = new VstAudioProcessor(vstPlugin);
+audioTrackEngine.PluginChainSampleProvider.AddPlugin(vstProcessor);
+
+// Setting up volume metering
+audioTrackEngine.VolumeMeasured += (sender, args) =>
+{
+    float leftChannel = args.MaxSampleValues[0];
+    float rightChannel = args.MaxSampleValues[1];
+    UpdateVolumeMeters(leftChannel, rightChannel);
+};
+
+// Firing a clip for playback
+var audioFile = new AudioFileReader("vocal.wav");
+audioTrackEngine.Fire(audioFile, offset: 0.0f, endOffset: 0.0f);
+
+// Controlling stereo properties
+audioTrackEngine.StereoSampleProvider.SetGain(0.8f); // 80% volume
+audioTrackEngine.StereoSampleProvider.Pan = -0.5f;   // Pan left
+
+// Getting final output
+var trackOutput = audioTrackEngine.GetTrackAudio();
+```
+
+## Derived Classes
+
+- **AudioTrackEngine**: Engine for audio tracks, handles audio file playback
+- **MidiTrackEngine**: Engine for MIDI tracks, handles MIDI playback and virtual instruments
+- **GroupTrackEngine**: Engine for group tracks, handles submixing
+
+## Notes
+
+<Note>
+  The TrackEngine manages its own audio processing chain. Sample providers are connected in a specific order to ensure proper audio flow.
+</Note>
+
+<Warning>
+  Always call `StopSounds()` before disposing of the engine to prevent audio artifacts.
+</Warning>
+
+## See Also
+
+- [Track](/api/core/track) - Uses TrackEngine for audio processing
+- [Clip](/api/core/clip) - Clips trigger playback through the engine
+- [MusicalTime](/api/core/musical-time) - Used for timing clip playback

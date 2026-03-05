@@ -1,0 +1,264 @@
+---
+title: AudioClipData
+description: Container class that holds audio file data and provides access to audio streams
+---
+
+## Overview
+
+The `AudioClipData` class is a lightweight container that wraps audio file data using NAudio's `AudioFileReader` and `WaveChannel32`. It provides the underlying audio data needed by `AudioClip` instances for playback and visualization.
+
+## Constructor
+
+### AudioClipData(string filePath)
+
+Creates a new audio clip data instance by loading an audio file from the specified path.
+
+<ParamField path="filePath" type="string" required>
+  The full path to the audio file to load. Supports common audio formats like WAV, MP3, FLAC, etc.
+</ParamField>
+
+```csharp
+var audioData = new AudioClipData(@"C:\Audio\vocals.wav");
+```
+
+<Warning>
+  Ensure the file path points to a valid audio file. Invalid paths or unsupported formats will throw an exception.
+</Warning>
+
+## Properties
+
+<ResponseField name="AudioFileReader" type="AudioFileReader">
+  The NAudio audio file reader that provides access to the audio file data.
+  
+  This reader provides:
+  - Audio format information (sample rate, channels, bit depth)
+  - Total duration and length
+  - Audio sample reading capabilities
+  - Position seeking
+  
+  ```csharp
+  // Get audio format information
+  var format = audioData.AudioFileReader.WaveFormat;
+  Console.WriteLine($"Sample Rate: {format.SampleRate} Hz");
+  Console.WriteLine($"Channels: {format.Channels}");
+  Console.WriteLine($"Bits Per Sample: {format.BitsPerSample}");
+  
+  // Get duration
+  var duration = audioData.AudioFileReader.TotalTime;
+  Console.WriteLine($"Duration: {duration.TotalSeconds:F2} seconds");
+  
+  // Get total samples
+  long totalSamples = audioData.AudioFileReader.Length;
+  ```
+</ResponseField>
+
+<ResponseField name="Wave32" type="WaveChannel32">
+  A 32-bit wave channel wrapper around the audio file reader.
+  
+  This provides:
+  - Volume control
+  - Pan control
+  - 32-bit float sample conversion
+  
+  ```csharp
+  // Adjust volume (0.0 to 1.0)
+  audioData.Wave32.Volume = 0.8f;
+  
+  // Set pan (-1.0 left to +1.0 right)
+  audioData.Wave32.Pan = 0.5f;
+  ```
+</ResponseField>
+
+## Usage Examples
+
+### Basic Usage
+
+```csharp
+using Lumix.Clips.AudioClips;
+using NAudio.Wave;
+
+// Load an audio file
+var audioData = new AudioClipData("guitar.wav");
+
+// Access audio properties
+var reader = audioData.AudioFileReader;
+Console.WriteLine($"File: {reader.FileName}");
+Console.WriteLine($"Duration: {reader.TotalTime}");
+Console.WriteLine($"Sample Rate: {reader.WaveFormat.SampleRate} Hz");
+Console.WriteLine($"Channels: {reader.WaveFormat.Channels}");
+```
+
+### Reading Audio Samples
+
+```csharp
+var audioData = new AudioClipData("audio.wav");
+var reader = audioData.AudioFileReader;
+
+// Read audio samples
+float[] buffer = new float[1024];
+int samplesRead = reader.Read(buffer, 0, buffer.Length);
+
+Console.WriteLine($"Read {samplesRead} samples");
+
+// Process samples
+for (int i = 0; i < samplesRead; i++)
+{
+    float sample = buffer[i];
+    // Process sample...
+}
+```
+
+### Seeking to a Position
+
+```csharp
+var audioData = new AudioClipData("song.wav");
+var reader = audioData.AudioFileReader;
+
+// Seek to 5 seconds
+reader.CurrentTime = TimeSpan.FromSeconds(5.0);
+
+// Or seek by sample position
+long targetPosition = 48000 * 2 * 4; // 1 second at 48kHz stereo (4 bytes per sample)
+reader.Position = targetPosition;
+
+Console.WriteLine($"Current position: {reader.CurrentTime}");
+```
+
+### Volume and Pan Control
+
+```csharp
+var audioData = new AudioClipData("drums.wav");
+
+// Set volume to 50%
+audioData.Wave32.Volume = 0.5f;
+
+// Pan to the right
+audioData.Wave32.Pan = 0.5f; // Range: -1.0 (left) to +1.0 (right)
+
+Console.WriteLine($"Volume: {audioData.Wave32.Volume}");
+Console.WriteLine($"Pan: {audioData.Wave32.Pan}");
+```
+
+### Getting Detailed Format Information
+
+```csharp
+var audioData = new AudioClipData("vocals.wav");
+var format = audioData.AudioFileReader.WaveFormat;
+
+Console.WriteLine($"Format: {format.Encoding}");
+Console.WriteLine($"Sample Rate: {format.SampleRate} Hz");
+Console.WriteLine($"Bits Per Sample: {format.BitsPerSample}");
+Console.WriteLine($"Channels: {format.Channels}");
+Console.WriteLine($"Block Align: {format.BlockAlign}");
+Console.WriteLine($"Average Bytes Per Second: {format.AverageBytesPerSecond}");
+```
+
+### Using with AudioClip
+
+```csharp
+using Lumix.Clips.AudioClips;
+using Lumix.Tracks.AudioTracks;
+
+// Create a track
+var track = new AudioTrack("Bass");
+
+// Load audio data
+var bassData = new AudioClipData("bass.wav");
+
+// Create a clip with the audio data
+var bassClip = new AudioClip(track, bassData, startingTick: 0);
+
+// Add to track
+track.Clips.Add(bassClip);
+
+// Access the audio data through the clip
+var clipDuration = bassClip.Clip.AudioFileReader.TotalTime.TotalSeconds;
+Console.WriteLine($"Clip duration: {clipDuration:F2} seconds");
+```
+
+### Checking Audio File Properties
+
+```csharp
+var audioData = new AudioClipData("recording.wav");
+var reader = audioData.AudioFileReader;
+
+// Check if stereo or mono
+bool isStereo = reader.WaveFormat.Channels == 2;
+Console.WriteLine($"Stereo: {isStereo}");
+
+// Get total length in bytes
+long totalBytes = reader.Length;
+Console.WriteLine($"Total bytes: {totalBytes:N0}");
+
+// Calculate total samples
+long totalSamples = totalBytes / (reader.WaveFormat.BitsPerSample / 8);
+Console.WriteLine($"Total samples: {totalSamples:N0}");
+
+// Get file name
+string fileName = Path.GetFileName(reader.FileName);
+Console.WriteLine($"File name: {fileName}");
+```
+
+### Error Handling
+
+```csharp
+try
+{
+    var audioData = new AudioClipData("nonexistent.wav");
+}
+catch (FileNotFoundException ex)
+{
+    Console.WriteLine($"File not found: {ex.Message}");
+}
+catch (InvalidOperationException ex)
+{
+    Console.WriteLine($"Invalid audio format: {ex.Message}");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Error loading audio: {ex.Message}");
+}
+```
+
+## Supported Audio Formats
+
+The `AudioClipData` class uses NAudio's `AudioFileReader`, which supports:
+
+- WAV (PCM, IEEE Float, and other variants)
+- MP3
+- AIFF
+- FLAC (with appropriate codecs installed)
+- Other formats supported by installed ACM/DMO codecs
+
+## Performance Considerations
+
+<Note>
+  - Loading large audio files may take time and consume memory
+  - The `AudioFileReader` keeps the file open for reading
+  - Multiple `AudioClipData` instances can reference the same file
+  - Consider implementing caching for frequently used audio files
+</Note>
+
+## Memory Management
+
+```csharp
+// AudioFileReader implements IDisposable
+// Dispose when no longer needed
+var audioData = new AudioClipData("temp.wav");
+
+// Use the audio data...
+
+// Clean up
+audioData.AudioFileReader.Dispose();
+audioData.Wave32.Dispose();
+```
+
+<Warning>
+  The current implementation does not automatically dispose of resources. Ensure proper disposal when audio data is no longer needed to prevent memory leaks.
+</Warning>
+
+## See Also
+
+- [AudioClip](/api/audio/audio-clip) - Audio clip class that uses AudioClipData
+- [AudioTrack](/api/audio/audio-track) - Audio track that contains clips
+- [NAudio Documentation](https://github.com/naudio/NAudio) - External NAudio library documentation

@@ -1,0 +1,756 @@
+---
+title: 'Building Custom Plugins'
+description: 'Create audio processors and effects for Lumix'
+---
+
+## Plugin System Overview
+
+Lumix supports two types of plugins:
+
+<CardGroup cols={2}>
+  <Card title="Built-in Plugins" icon="code">
+    Native C# plugins with full integration into Lumix UI and audio engine
+  </Card>
+  <Card title="VST Plugins" icon="plug">
+    External VST2 plugins loaded dynamically at runtime
+  </Card>
+</CardGroup>
+
+This guide focuses on creating **built-in plugins** using C#.
+
+## IAudioProcessor Interface
+
+All plugins implement the `IAudioProcessor` interface:
+
+```csharp Plugins/IAudioProcessor.cs
+namespace Lumix.Plugins;
+
+public interface IAudioProcessor
+{
+    /// <summary>
+    /// The plugin state. True if enabled, false if disabled.
+    /// </summary>
+    bool Enabled { get; set; }
+    
+    /// <summary>
+    /// Flag to request plugin deletion from chain
+    /// </summary>
+    bool DeleteRequested { get; set; }
+    
+    /// <summary>
+    /// Flag to request plugin duplication
+    /// </summary>
+    bool DuplicateRequested { get; set; }
+    
+    /// <summary>
+    /// Processes audio as defined in its implementation.
+    /// </summary>
+    /// <param name="input">The incoming unprocessed audio buffer</param>
+    /// <param name="output">The processed audio buffer</param>
+    /// <param name="samplesRead">Number of samples to process</param>
+    void Process(float[] input, float[] output, int samplesRead);
+    
+    /// <summary>
+    /// Generic method to retrieve the underlying plugin (if applicable)
+    /// </summary>
+    T? GetPlugin<T>() where T : class;
+    
+    /// <summary>
+    /// Toggles the plugin state
+    /// </summary>
+    void Toggle() => Enabled = !Enabled;
+}
+```
+
+<Note>
+  Audio buffers are **interleaved stereo**: `[L, R, L, R, ...]` format.
+</Note>
+
+## Creating a Built-in Plugin
+
+### Basic Plugin Structure
+
+Built-in plugins inherit from `BuiltInPlugin` and implement `IAudioProcessor`:
+
+```csharp
+using Lumix.Plugins.BuiltIn;
+using Lumix.Plugins;
+using ImGuiNET;
+
+namespace Lumix.Plugins.BuiltIn.MyPlugins;
+
+public class GainPlugin : BuiltInPlugin, IAudioProcessor
+{
+    // Plugin metadata
+    public override string PluginName => "Gain";
+    public override BuiltInCategory Category => BuiltInCategory.Utilities;
+    
+    // IAudioProcessor implementation
+    public bool Enabled { get; set; } = true;
+    public bool DeleteRequested { get; set; }
+    public bool DuplicateRequested { get; set; }
+    
+    // Plugin parameters
+    private float _gain = 1.0f;
+    
+    // Audio processing
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        for (int i = 0; i < samplesRead; i++)
+        {
+            output[i] = input[i] * _gain;
+        }
+    }
+    
+    // UI rendering
+    public override void RenderRectContent()
+    {
+        ImGui.SliderFloat("Gain", ref _gain, 0f, 2f);
+    }
+    
+    public T? GetPlugin<T>() where T : class => null;
+}
+```
+
+### Plugin Categories
+
+```csharp
+public enum BuiltInCategory
+{
+    EQ,          // Equalizers and filters
+    Utilities,   // Gain, pan, utility plugins
+    // Add custom categories as needed
+}
+```
+
+## Audio Processing
+
+### Understanding the Audio Buffer
+
+<Warning>
+  The `Process` method runs on the **audio thread**. Avoid allocations, locks, and heavy computations!
+</Warning>
+
+Audio format:
+- **Sample Rate**: Typically 44100 Hz or 48000 Hz (configurable)
+- **Channels**: Stereo (2 channels)
+- **Format**: 32-bit float, range [-1.0, 1.0]
+- **Layout**: Interleaved stereo `[L, R, L, R, ...]`
+
+### Processing Stereo Audio
+
+```csharp
+public void Process(float[] input, float[] output, int samplesRead)
+{
+    // Process stereo pairs
+    for (int i = 0; i < samplesRead; i += 2)
+    {
+        float leftChannel = input[i];      // Left sample
+        float rightChannel = input[i + 1]; // Right sample
+        
+        // Process left channel
+        output[i] = ProcessSample(leftChannel);
+        
+        // Process right channel
+        output[i + 1] = ProcessSample(rightChannel);
+    }
+}
+
+private float ProcessSample(float sample)
+{
+    // Your DSP algorithm here
+    return sample * _gain;
+}
+```
+
+### Common DSP Techniques
+
+<AccordionGroup>
+  <Accordion title="Gain Control">
+    ```csharp
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        // Linear gain
+        for (int i = 0; i < samplesRead; i++)
+        {
+            output[i] = input[i] * _linearGain;
+        }
+    }
+    
+    // Convert dB to linear gain
+    private float DbToLinear(float dB)
+    {
+        return (float)Math.Pow(10, dB / 20);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Simple Filter (Low Pass)">
+    ```csharp
+    private float _lastOutput = 0f;
+    private float _alpha = 0.1f; // Cutoff coefficient
+    
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        for (int i = 0; i < samplesRead; i += 2)
+        {
+            // Left channel
+            _lastOutput = _alpha * input[i] + (1 - _alpha) * _lastOutput;
+            output[i] = _lastOutput;
+            
+            // Right channel (separate state needed for stereo)
+            output[i + 1] = ProcessChannel(input[i + 1]);
+        }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Using NAudio DSP">
+    Lumix uses NAudio, which includes BiQuad filters:
+    
+    ```csharp
+    using NAudio.Dsp;
+    
+    private BiQuadFilter _filterLeft;
+    private BiQuadFilter _filterRight;
+    
+    public GainPlugin()
+    {
+        // Initialize filters
+        _filterLeft = BiQuadFilter.LowPassFilter(44100, 1000f, 0.71f);
+        _filterRight = BiQuadFilter.LowPassFilter(44100, 1000f, 0.71f);
+    }
+    
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        for (int i = 0; i < samplesRead; i += 2)
+        {
+            output[i] = _filterLeft.Transform(input[i]);
+            output[i + 1] = _filterRight.Transform(input[i + 1]);
+        }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Bypass/Disabled State">
+    ```csharp
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        // If disabled, copy input to output (bypass)
+        if (!Enabled)
+        {
+            Array.Copy(input, output, samplesRead);
+            return;
+        }
+        
+        // Otherwise, process audio
+        for (int i = 0; i < samplesRead; i++)
+        {
+            output[i] = ProcessSample(input[i]);
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## UI Rendering
+
+### RenderRectContent Method
+
+The `RenderRectContent` method is called every frame to render your plugin's UI:
+
+```csharp
+public override void RenderRectContent()
+{
+    // Render plugin controls using ImGui
+    ImGui.Text("Plugin Controls");
+    
+    if (ImGui.SliderFloat("Parameter", ref _parameter, 0f, 1f))
+    {
+        // Parameter changed
+        UpdateProcessing();
+    }
+    
+    if (ImGui.Button("Reset"))
+    {
+        _parameter = 0.5f;
+    }
+}
+```
+
+### Using Custom Controls
+
+Lumix provides custom ImGui controls:
+
+```csharp
+using Lumix.ImGuiExtensions;
+
+public override void RenderRectContent()
+{
+    // Custom knob control
+    ImGuiKnobs.Knob("Frequency", ref _frequency, 20f, 20000f, 10f, 
+                    "%.0f Hz", ImGuiKnobVariant.WiperOnly, 50);
+    
+    // Reset on double-click
+    if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+    {
+        _frequency = 1000f;
+    }
+    
+    ImGui.SameLine();
+    
+    // Drag slider
+    UiElement.DragSlider("Gain", 100, ref _gain, 0.1f, -24f, 12f, "%.1f dB");
+}
+```
+
+### Layout Examples
+
+<Tabs>
+  <Tab title="Horizontal Layout">
+    ```csharp
+    public override void RenderRectContent()
+    {
+        ImGuiKnobs.Knob("Freq", ref _freq, 0, 20000f);
+        ImGui.SameLine();
+        ImGuiKnobs.Knob("Q", ref _q, 0.1f, 10f);
+        ImGui.SameLine();
+        ImGuiKnobs.Knob("Gain", ref _gain, -24f, 24f);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Vertical Layout">
+    ```csharp
+    public override void RenderRectContent()
+    {
+        ImGui.Text("Filter Settings");
+        ImGui.Separator();
+        
+        ImGui.SliderFloat("Frequency", ref _freq, 20f, 20000f);
+        ImGui.SliderFloat("Resonance", ref _q, 0.1f, 10f);
+        ImGui.SliderFloat("Gain", ref _gain, -24f, 24f);
+        
+        if (ImGui.Button("Reset to Defaults"))
+        {
+            ResetToDefaults();
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Advanced Layout">
+    ```csharp
+    public override void RenderRectContent()
+    {
+        // Knobs on top
+        ImGuiKnobs.Knob("Freq", ref _freq, 20f, 20000f);
+        ImGui.SameLine();
+        ImGuiKnobs.Knob("Q", ref _q, 0.1f, 10f);
+        
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        
+        // Dropdown selector
+        ImGui.BeginChild("filter_type", Vector2.Zero);
+        ImGui.SeparatorText("Filter Type");
+        
+        if (ImGui.BeginCombo("##type", _filterType.ToString()))
+        {
+            foreach (FilterType type in Enum.GetValues<FilterType>())
+            {
+                if (ImGui.Selectable(type.ToString(), type == _filterType))
+                {
+                    _filterType = type;
+                    UpdateFilter();
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGui.EndChild();
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Complete Plugin Example
+
+Here's a complete EQ plugin example from Lumix:
+
+```csharp Plugins/BuiltIn/Eq/SimpleEqPlugin.cs
+using Lumix.Plugins.BuiltIn;
+using Lumix.Plugins;
+using NAudio.Dsp;
+using ImGuiNET;
+using IconFonts;
+
+namespace Lumix.Plugins.BuiltIn.Eq;
+
+public class SimpleEqPlugin : BuiltInPlugin, IAudioProcessor
+{
+    public override string PluginName => "SimpleEq";
+    public override BuiltInCategory Category => BuiltInCategory.EQ;
+    
+    private EqType _eqType = EqType.None;
+    private float _frequency = 4000f;
+    private float _q = 0.71f;
+    private float _gain = 0f;
+    private string _icon = string.Empty;
+    
+    private enum EqType
+    {
+        None,
+        LowPass,
+        HighPass,
+        LowShelf,
+        HighShelf
+    }
+    
+    public bool Enabled { get; set; } = true;
+    public bool DeleteRequested { get; set; }
+    public bool DuplicateRequested { get; set; }
+    
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        // Bypass if no filter selected
+        if (_eqType == EqType.None)
+        {
+            Array.Copy(input, output, samplesRead);
+            return;
+        }
+        
+        // Create appropriate filter
+        BiQuadFilter eq = _eqType switch
+        {
+            EqType.LowPass => BiQuadFilter.LowPassFilter(44100, _frequency, _q),
+            EqType.HighPass => BiQuadFilter.HighPassFilter(44100, _frequency, _q),
+            EqType.LowShelf => BiQuadFilter.LowShelf(44100, _frequency, _q, _gain),
+            EqType.HighShelf => BiQuadFilter.HighShelf(44100, _frequency, _q, _gain),
+            _ => null
+        };
+        
+        // Process stereo audio
+        for (int i = 0; i < samplesRead; i += 2)
+        {
+            output[i] = eq.Transform(input[i]);          // Left
+            output[i + 1] = eq.Transform(input[i + 1]);  // Right
+        }
+    }
+    
+    public override void RenderRectContent()
+    {
+        // Knob controls
+        ImGuiKnobs.Knob("Freq", ref _frequency, 0, 22000f, 10f, "%.0f", 
+                        ImGuiKnobVariant.WiperOnly, 40, ImGuiKnobFlags.AlwaysClamp);
+        if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+            _frequency = 4000f;
+            
+        ImGui.SameLine(0, 30);
+        ImGuiKnobs.Knob("Q", ref _q, 0.1f, 18f, 0.01f, "%.2f",
+                        ImGuiKnobVariant.WiperOnly, 40, ImGuiKnobFlags.AlwaysClamp);
+        if (ImGui.IsItemHovered() && ImGui.IsMouseDoubleClicked(ImGuiMouseButton.Left))
+            _q = 0.71f;
+            
+        // Gain knob (disabled for filters without gain)
+        ImGui.BeginDisabled(_eqType != EqType.LowShelf && _eqType != EqType.HighShelf);
+        ImGui.SameLine(0, 30);
+        ImGuiKnobs.Knob("Gain", ref _gain, -15f, 15f, 0.1f, "%.1f",
+                        ImGuiKnobVariant.Wiper, 40, ImGuiKnobFlags.AlwaysClamp);
+        ImGui.EndDisabled();
+        
+        ImGui.Spacing();
+        
+        // Filter type selector
+        ImGui.BeginChild("combo_controls", Vector2.Zero);
+        ImGui.SeparatorText("Filter mode");
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        
+        if (ImGui.BeginCombo("##Filter", $"{_icon} {_eqType}"))
+        {
+            foreach (EqType type in Enum.GetValues<EqType>())
+            {
+                string icon = GetIconForType(type);
+                if (ImGui.Selectable($"{icon} {type}", type == _eqType))
+                {
+                    _eqType = type;
+                    _icon = icon;
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGui.EndChild();
+    }
+    
+    private string GetIconForType(EqType type) => type switch
+    {
+        EqType.LowPass => Fontaudio.FilterLowpass,
+        EqType.HighPass => Fontaudio.FilterHighpass,
+        EqType.LowShelf => Fontaudio.FilterShelvingLo,
+        EqType.HighShelf => Fontaudio.FilterShelvingHi,
+        _ => string.Empty
+    };
+    
+    public T? GetPlugin<T>() where T : class => null;
+}
+```
+
+## Plugin Chain Processing
+
+Plugins are processed in chain order:
+
+```mermaid
+flowchart LR
+    A[Track Audio] --> B[VSTi/Instrument]
+    B --> C[Plugin 1]
+    C --> D[Plugin 2]
+    D --> E[Plugin N]
+    E --> F[Track Output]
+```
+
+The `PluginChainSampleProvider` processes each plugin serially:
+
+```csharp Plugins/PluginChainSampleProvider.cs
+public int Read(float[] buffer, int offset, int count)
+{
+    int samplesRead = source.Read(buffer, offset, count);
+    
+    // Process instrument (VSTi) if present
+    if (_pluginInstrument?.Enabled == true)
+    {
+        _pluginInstrument.Process(buffer, buffer, samplesRead);
+    }
+    
+    // Process FX plugins in order
+    foreach (var plugin in _fxPlugins)
+    {
+        if (plugin.Enabled)
+        {
+            plugin.Process(buffer, buffer, samplesRead);
+        }
+    }
+    
+    return samplesRead;
+}
+```
+
+<Note>
+  Each plugin processes audio in-place, modifying the buffer directly.
+</Note>
+
+## Adding Your Plugin to Lumix
+
+### Step 1: Create Plugin File
+
+Create your plugin in `Lumix/Plugins/BuiltIn/`:
+
+```
+Lumix/Plugins/BuiltIn/
+├── Eq/
+├── Utilities/
+└── MyPlugins/          ← New folder
+    └── MyPlugin.cs     ← Your plugin
+```
+
+### Step 2: Register Plugin
+
+Plugins are automatically added to tracks via `PluginChainSampleProvider`:
+
+```csharp Plugins/PluginChainSampleProvider.cs
+private List<IAudioProcessor> _fxPlugins = new() 
+{ 
+    new UtilityPlugin(), 
+    new SimpleEqPlugin(),
+    new MyPlugin()  // Add your plugin here
+};
+```
+
+<Warning>
+  Currently, plugins are added to all new tracks by default. Future versions may support dynamic plugin loading.
+</Warning>
+
+### Step 3: Build and Test
+
+```bash
+dotnet build
+dotnet run --project Lumix
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Audio Thread Safety">
+    ✅ **DO:**
+    - Pre-allocate all buffers in constructor
+    - Use lock-free algorithms
+    - Keep processing fast and deterministic
+    
+    ❌ **DON'T:**
+    - Allocate memory in `Process()`
+    - Use locks or mutexes
+    - Call UI code from audio thread
+    - Perform file I/O
+  </Accordion>
+  
+  <Accordion title="Parameter Changes">
+    ```csharp
+    private float _targetGain = 1.0f;
+    private float _currentGain = 1.0f;
+    private const float _smoothing = 0.001f;
+    
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        // Smooth parameter changes to avoid clicks
+        for (int i = 0; i < samplesRead; i++)
+        {
+            _currentGain += (_targetGain - _currentGain) * _smoothing;
+            output[i] = input[i] * _currentGain;
+        }
+    }
+    
+    public override void RenderRectContent()
+    {
+        // UI updates _targetGain, audio thread smooths to it
+        ImGui.SliderFloat("Gain", ref _targetGain, 0f, 2f);
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Performance Optimization">
+    ```csharp
+    // ✅ Good: Process in blocks
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        for (int i = 0; i < samplesRead; i++)
+        {
+            output[i] = input[i] * _gain;
+        }
+    }
+    
+    // ❌ Bad: Separate left/right processing (cache misses)
+    public void Process(float[] input, float[] output, int samplesRead)
+    {
+        for (int i = 0; i < samplesRead; i += 2)
+        {
+            output[i] = ProcessLeft(input[i]);
+        }
+        for (int i = 1; i < samplesRead; i += 2)
+        {
+            output[i] = ProcessRight(input[i]);
+        }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="State Management">
+    ```csharp
+    // Store filter state as instance variables
+    private BiQuadFilter _leftFilter;
+    private BiQuadFilter _rightFilter;
+    private float _lastSampleLeft;
+    private float _lastSampleRight;
+    
+    // Reset state when parameters change
+    private void UpdateFilter()
+    {
+        _leftFilter = BiQuadFilter.LowPassFilter(44100, _frequency, _q);
+        _rightFilter = BiQuadFilter.LowPassFilter(44100, _frequency, _q);
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Debugging Plugins
+
+### Console Logging
+
+```csharp
+// Use Console.WriteLine for debugging (avoid in audio thread!)
+public override void RenderRectContent()
+{
+    if (ImGui.SliderFloat("Frequency", ref _frequency, 20f, 20000f))
+    {
+        Console.WriteLine($"Frequency changed to: {_frequency} Hz");
+        UpdateFilter();
+    }
+}
+```
+
+### Visual Debugging
+
+```csharp
+public override void RenderRectContent()
+{
+    // Display current values
+    ImGui.Text($"Current Gain: {_currentGain:F3}");
+    ImGui.Text($"Peak Level: {_peakLevel:F3} dB");
+    
+    // Progress bars for meters
+    ImGui.ProgressBar(_volumeLevel, new Vector2(-1, 0));
+}
+```
+
+## Advanced Topics
+
+### Accessing Sample Rate
+
+```csharp
+using Lumix.Views.Preferences.Audio;
+
+public MyPlugin()
+{
+    int sampleRate = AudioSettings.SampleRate;
+    InitializeFilters(sampleRate);
+}
+```
+
+### Multi-band Processing
+
+```csharp
+private BiQuadFilter _lowBandFilter;
+private BiQuadFilter _midBandFilter;
+private BiQuadFilter _highBandFilter;
+
+public void Process(float[] input, float[] output, int samplesRead)
+{
+    float[] lowBand = new float[samplesRead];
+    float[] midBand = new float[samplesRead];
+    float[] highBand = new float[samplesRead];
+    
+    // Split into bands
+    for (int i = 0; i < samplesRead; i++)
+    {
+        lowBand[i] = _lowBandFilter.Transform(input[i]);
+        midBand[i] = _midBandFilter.Transform(input[i]);
+        highBand[i] = _highBandFilter.Transform(input[i]);
+    }
+    
+    // Process each band independently
+    ProcessBand(lowBand, _lowGain);
+    ProcessBand(midBand, _midGain);
+    ProcessBand(highBand, _highGain);
+    
+    // Mix back together
+    for (int i = 0; i < samplesRead; i++)
+    {
+        output[i] = lowBand[i] + midBand[i] + highBand[i];
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="diagram-project" href="/development/architecture">
+    Understand the full system architecture
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Learn how to contribute to Lumix
+  </Card>
+</CardGroup>
+
+---
+
+<Tip>
+  Experiment with the built-in plugins (`SimpleEqPlugin`, `UtilityPlugin`) as starting points for your own effects!
+</Tip>

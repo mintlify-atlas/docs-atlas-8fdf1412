@@ -1,0 +1,323 @@
+---
+title: VST2 Plugin Support
+description: Loading and hosting external VST2 instruments and effects
+---
+
+Lumix supports VST2 plugins through the Jacobi VST.NET library, enabling integration of both VST instruments (VSTi) and effects (VST) into your projects.
+
+## Plugin Types
+
+VST plugins are categorized into two types:
+
+```csharp
+public enum VstType
+{
+    VST,   // Effect processor
+    VSTi   // Instrument (synthesizer)
+}
+```
+
+- **VST** - Audio effects that process incoming audio
+- **VSTi** - Virtual instruments that generate audio from MIDI input
+
+## Loading VST Plugins
+
+### VstPlugin Class
+
+The `VstPlugin` class handles VST plugin loading and windowing:
+
+```csharp
+var plugin = new VstPlugin(pluginPath);
+```
+
+**Constructor Process:**
+
+1. **Load Plugin** - Creates a `VstPluginContext` from the DLL path
+2. **Detect Type** - Checks `VstPluginFlags.IsSynth` to determine if it's an instrument
+3. **Open Plugin** - Calls `Open()` on the plugin command stub
+4. **Create Editor Window** - Opens a UI window if the plugin has one
+5. **Start Idle Loop** - Begins UI update cycle at ~60fps
+
+### Plugin Context
+
+The plugin context provides access to VST functionality:
+
+```csharp
+public VstPluginContext PluginContext { get; }
+```
+
+**Key Properties:**
+- `PluginInfo` - Metadata about the plugin
+- `PluginCommandStub` - Interface for sending commands to the plugin
+
+## Audio Processing
+
+### VstAudioProcessor
+
+The `VstAudioProcessor` class wraps a `VstPlugin` with the `IAudioProcessor` interface:
+
+```csharp
+public class VstAudioProcessor : IAudioProcessor
+{
+    private VstPlugin _vstPlugin;
+    public VstPlugin VstPlugin => _vstPlugin;
+    
+    public VstAudioProcessor(VstPlugin vst)
+    {
+        _vstPlugin = vst;
+    }
+}
+```
+
+### Buffer Management
+
+VST processing uses circular buffers for block-based processing:
+
+```csharp
+private CircularBuffer inputBuffer;
+private CircularBuffer outputBuffer;
+private VstAudioBuffer[] _inputBuffers;
+private VstAudioBuffer[] _outputBuffers;
+```
+
+**Processing Pipeline:**
+
+1. **Interleaved to Planar Conversion** - Lumix's interleaved stereo is split into separate L/R buffers
+2. **Block Processing** - Audio is processed in fixed-size blocks
+3. **VST Processing** - Calls `ProcessReplacing()` on the plugin
+4. **Planar to Interleaved Conversion** - Separate channels are merged back
+
+### Block Size Configuration
+
+```csharp
+private void UpdateBlockSize(int blockSize)
+{
+    _blockSize = blockSize;
+    
+    int inputCount = _vstPlugin.PluginContext.PluginInfo.AudioInputCount;
+    int outputCount = _vstPlugin.PluginContext.PluginInfo.AudioOutputCount;
+    
+    var inputMgr = new VstAudioBufferManager(inputCount, blockSize);
+    var outputMgr = new VstAudioBufferManager(outputCount, blockSize);
+    
+    _vstPlugin.PluginContext.PluginCommandStub.Commands.SetBlockSize(blockSize);
+    _vstPlugin.PluginContext.PluginCommandStub.Commands.SetSampleRate(AudioSettings.SampleRate);
+    _vstPlugin.PluginContext.PluginCommandStub.Commands.SetProcessPrecision(VstProcessPrecision.Process32);
+    
+    _inputBuffers = inputMgr.Buffers.ToArray();
+    _outputBuffers = outputMgr.Buffers.ToArray();
+}
+```
+
+<Note>
+Block size is dynamically adjusted based on the incoming audio buffer size, and the plugin is reconfigured accordingly.
+</Note>
+
+## MIDI Support
+
+VST instruments receive MIDI events through the plugin context:
+
+### Note On
+
+```csharp
+public void SendNoteOn(int channel, int note, int velocity)
+{
+    var midiEvent = new VstMidiEvent(
+        deltaFrames: 0,
+        noteLength: 0,
+        noteOffset: 0,
+        midiData: new byte[]
+        {
+            (byte)(0x90 | channel & 0x0F),  // Note On status + channel
+            (byte)(note & 0x7F),             // Note number (0-127)
+            (byte)(velocity & 0x7F)          // Velocity (0-127)
+        },
+        detune: 0,
+        noteOffVelocity: 0);
+    
+    _pluginContext.PluginCommandStub.Commands.ProcessEvents(new VstEvent[] { midiEvent });
+}
+```
+
+### Note Off
+
+```csharp
+public void SendNoteOff(int channel, int note, int velocity)
+{
+    var midiEvent = new VstMidiEvent(
+        deltaFrames: 0,
+        noteLength: 0,
+        noteOffset: 0,
+        midiData: new byte[]
+        {
+            (byte)(0x80 | channel & 0x0F),  // Note Off status + channel
+            (byte)(note & 0x7F),             // Note number
+            (byte)(velocity & 0x7F)          // Release velocity
+        },
+        detune: 0,
+        noteOffVelocity: 0);
+    
+    _pluginContext.PluginCommandStub.Commands.ProcessEvents(new VstEvent[] { midiEvent });
+}
+```
+
+### Sustain Pedal
+
+```csharp
+public void SendSustainPedal(int channel, bool isPressed)
+{
+    var midiEvent = new VstMidiEvent(
+        deltaFrames: 0,
+        noteLength: 0,
+        noteOffset: 0,
+        midiData: new byte[]
+        {
+            (byte)(0xB0 | (channel & 0x0F)),  // Control Change + channel
+            (byte)(64),                        // CC 64 (sustain pedal)
+            (byte)(isPressed ? 127 : 0)        // Value: 127=on, 0=off
+        },
+        detune: 0,
+        noteOffVelocity: 0);
+    
+    _pluginContext.PluginCommandStub.Commands.ProcessEvents(new VstEvent[] { midiEvent });
+}
+```
+
+## Plugin Editor Window
+
+### Window Creation
+
+Lumix creates a native window for the plugin's editor:
+
+```csharp
+private IntPtr CreateWindow(string title, int width, int height)
+{
+    _pluginWindow = new Sdl2Window(
+        title, 
+        400, 400,  // X, Y position
+        width, height,
+        SDL_WindowFlags.AlwaysOnTop | 
+        SDL_WindowFlags.Resizable | 
+        SDL_WindowFlags.SkipTaskbar, 
+        false);
+    
+    // Plugin window communicates with main window
+    _pluginWindow.KeyDown += VirtualKeyboard.KeyDownFromPlugin;
+    _pluginWindow.KeyUp += VirtualKeyboard.KeyUpFromPlugin;
+    
+    return _pluginWindow.Handle;
+}
+```
+
+**Window Features:**
+- Always on top
+- Resizable (controlled by plugin)
+- Minimize/maximize buttons removed
+- Keyboard events forwarded to virtual keyboard
+
+### Editor Idle Loop
+
+The editor is kept responsive with a continuous idle loop:
+
+```csharp
+private void StartEditorIdle()
+{
+    Task.Run(async () =>
+    {
+        while (_pluginWindow.Exists)
+        {
+            _pluginContext?.PluginCommandStub.Commands.EditorIdle();
+            await Task.Delay(16);  // ~60 FPS
+        }
+    });
+}
+```
+
+<Info>
+The `EditorIdle()` call allows the plugin to update its UI in response to parameter changes and automation.
+</Info>
+
+## Plugin Lifecycle
+
+### Opening a Plugin
+
+```csharp
+public void OpenPluginWindow()
+{
+    if (!_pluginWindow.Exists)
+    {
+        int x = _pluginWindow.X;
+        int y = _pluginWindow.Y;
+        RecreateWindow();
+        _pluginWindow.X = x;
+        _pluginWindow.Y = y;
+    }
+}
+```
+
+### Disposing a Plugin
+
+```csharp
+public void Dispose(bool closeWindow = true)
+{
+    if (closeWindow)
+    {
+        _pluginWindow?.Close();
+    }
+    _pluginContext?.Dispose();
+}
+```
+
+<Warning>
+Always dispose of VST plugins properly to release native resources and unload plugin DLLs.
+</Warning>
+
+## Integration with Plugin Chain
+
+VST plugins are integrated into the plugin chain through `VstAudioProcessor`:
+
+```csharp
+// Adding a VSTi
+if (plugin is VstAudioProcessor vstPlugin && 
+    vstPlugin.VstPlugin.PluginType == VstType.VSTi)
+{
+    _pluginInstrument = plugin;
+}
+else
+{
+    _fxPlugins.Add(plugin);  // VST effects
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Plugin Chain" icon="link" href="/plugins/plugin-chain">
+    Learn how VST plugins fit into the processing chain
+  </Card>
+  <Card title="Built-in Plugins" icon="sliders" href="/plugins/built-in-plugins">
+    Compare with native plugin implementation
+  </Card>
+</CardGroup>
+
+## Technical Details
+
+<AccordionGroup>
+  <Accordion title="Audio Buffer Format">
+    - **Input**: Interleaved stereo float array `[L, R, L, R, ...]`
+    - **VST Format**: Planar float arrays `[[L, L, L...], [R, R, R...]]`
+    - **Conversion**: Handled automatically by `VstAudioProcessor`
+  </Accordion>
+  
+  <Accordion title="Sample Rate Configuration">
+    Sample rate is set from `AudioSettings.SampleRate` and configured during block size updates:
+    ```csharp
+    Commands.SetSampleRate(AudioSettings.SampleRate);
+    ```
+  </Accordion>
+  
+  <Accordion title="Processing Precision">
+    Lumix uses 32-bit float processing:
+    ```csharp
+    Commands.SetProcessPrecision(VstProcessPrecision.Process32);
+    ```
+  </Accordion>
+</AccordionGroup>

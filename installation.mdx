@@ -1,0 +1,164 @@
+---
+title: "Installation"
+description: "Get started with Lumix - a modern Digital Audio Workstation for .NET"
+---
+
+## Overview
+
+Lumix is a Digital Audio Workstation (DAW) currently under active development, featuring an Ableton Live-inspired interface and workflow. This guide will help you get Lumix up and running on your system.
+
+<Warning>
+  Lumix is under active development. Expect crashes, unfinished features, and breaking changes. For the latest stable releases, check the [GitHub Releases](https://github.com/ImAxel0/Lumix/releases) page.
+</Warning>
+
+## System Requirements
+
+### Minimum Requirements
+
+- **Operating System**: Windows 10/11 (64-bit or 32-bit)
+- **.NET Runtime**: .NET 6.0 or higher
+- **RAM**: 4 GB minimum, 8 GB recommended
+- **Processor**: x86 or x64 architecture
+- **Graphics**: DirectX 11 compatible graphics card
+
+### Software Dependencies
+
+<Note>
+  Lumix requires the .NET 6.0 Runtime to be installed on your system. The runtime is lightweight and free to download from Microsoft.
+</Note>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Install .NET 6.0 Runtime">
+    Download and install the .NET 6.0 Runtime from the official Microsoft website:
+    
+    - Visit [https://dotnet.microsoft.com/download/dotnet/6.0](https://dotnet.microsoft.com/download/dotnet/6.0)
+    - Download the **Desktop Runtime** installer for your system (x64 or x86)
+    - Run the installer and follow the on-screen instructions
+    
+    To verify installation, open a command prompt and run:
+    ```bash
+    dotnet --version
+    ```
+    
+    You should see version 6.0.x or higher.
+  </Step>
+
+  <Step title="Download Lumix">
+    Get the latest pre-built release of Lumix:
+    
+    1. Navigate to the [Lumix Releases page](https://github.com/ImAxel0/Lumix/releases)
+    2. Download the appropriate version for your system:
+       - `Lumix-x64.zip` for 64-bit systems (recommended)
+       - `Lumix-x86.zip` for 32-bit systems
+    3. Extract the ZIP file to a location of your choice (e.g., `C:\Program Files\Lumix`)
+  </Step>
+
+  <Step title="Verify Installation">
+    Navigate to the extracted folder and locate `Lumix.exe`. Double-click to launch the application.
+    
+    <Note>
+      On first launch, Windows may display a security warning. Click "More info" and then "Run anyway" to proceed.
+    </Note>
+    
+    If the application launches successfully, you should see the main Lumix interface with the arrangement view.
+  </Step>
+
+  <Step title="Configure Audio Settings (Optional)">
+    For optimal audio performance:
+    
+    1. Open Lumix
+    2. Navigate to **View > Preferences** (or press `Ctrl+;`)
+    3. Configure your audio device settings
+    4. Select your preferred ASIO driver for low-latency audio
+    
+    <Warning>
+      If using ASIO4ALL, you may need to manually terminate the Lumix process after closing the application due to a known issue with ASIO driver cleanup.
+    </Warning>
+  </Step>
+</Steps>
+
+## Supported Audio Formats
+
+Lumix supports the following formats through the NAudio library:
+
+- **Audio Files**: WAV, MP3, AIFF, FLAC
+- **MIDI Files**: Standard MIDI Format (.mid)
+- **Plugins**: VST2 (32-bit and 64-bit, matching your Lumix build)
+
+## VST Plugin Setup
+
+<Steps>
+  <Step title="Prepare Plugin Folder">
+    Create a dedicated folder for your VST2 plugins, for example:
+    ```
+    C:\Program Files\VSTPlugins
+    ```
+  </Step>
+
+  <Step title="Configure Plugin Path">
+    In Lumix, navigate to **View > Preferences** and set your VST plugin directory path.
+  </Step>
+
+  <Step title="Install VST2 Plugins">
+    Copy your VST2 plugin DLL files to the designated folder. Ensure plugins match your Lumix architecture:
+    - Use 64-bit VST plugins with Lumix x64
+    - Use 32-bit VST plugins with Lumix x86
+  </Step>
+
+  <Step title="Scan for Plugins">
+    Lumix will automatically scan the configured folder on startup and make plugins available in the devices view.
+  </Step>
+</Steps>
+
+<Note>
+  VST3 plugins are not currently supported. Only VST2 format is compatible with Lumix.
+</Note>
+
+## Troubleshooting
+
+### Application Won't Start
+
+- **Verify .NET 6.0 Runtime is installed**: Run `dotnet --version` in command prompt
+- **Check architecture compatibility**: Ensure you're using the correct build (x86 vs x64) for your system
+- **Run as Administrator**: Right-click `Lumix.exe` and select "Run as administrator"
+
+### Audio Issues
+
+- **No sound output**: Check your audio device settings in Preferences
+- **High latency**: Consider using an ASIO driver for better performance
+- **Crackling/popping**: Increase your audio buffer size in Preferences
+
+### VST Plugin Issues
+
+- **Plugins not appearing**: Ensure plugins are VST2 format and match your Lumix architecture
+- **Plugin crashes**: Some plugins may not be compatible. Try removing recently added plugins
+- **Plugin path not found**: Use absolute paths when configuring the VST directory
+
+### Process Won't Close
+
+<Warning>
+  When using ASIO4ALL or similar drivers, Lumix may not close properly. Use Task Manager to manually end the process if needed.
+</Warning>
+
+## Getting Help
+
+For additional support:
+
+- **Report issues**: [GitHub Issues](https://github.com/ImAxel0/Lumix/issues)
+- **View source code**: [GitHub Repository](https://github.com/ImAxel0/Lumix)
+- **Check development progress**: [Development Branch](https://github.com/ImAxel0/Lumix/tree/Development)
+
+## Next Steps
+
+Now that you have Lumix installed, you can:
+
+<CardGroup cols={2}>
+  <Card title="Build from Source" icon="code" href="/building-from-source">
+    Compile Lumix yourself and contribute to development
+  </Card>
+  <Card title="Introduction" icon="rocket" href="/introduction">
+    Learn the basics of using Lumix
+  </Card>
+</CardGroup>

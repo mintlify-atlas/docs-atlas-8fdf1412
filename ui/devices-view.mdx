@@ -1,0 +1,350 @@
+---
+title: "Devices View"
+description: "Plugin and effects management for audio processing chains"
+icon: "plug"
+---
+
+# Devices View
+
+The Devices View is where you manage audio processing for your tracks. Load VST2 plugins, built-in effects, and virtual instruments, then arrange them in a signal processing chain to shape your sound.
+
+<img
+  src="/images/devices-view-placeholder.png"
+  alt="Devices View showing a plugin chain with multiple effects"
+/>
+
+## Overview
+
+Every track in Lumix has its own plugin chain, visible in the Devices View when that track is selected. The Devices View displays plugins as rectangular cards arranged horizontally, representing the signal flow from left to right.
+
+<Note>
+  The Devices View always shows the plugin chain for the currently selected track. Select a different track in the Arrangement View to see its plugins.
+</Note>
+
+## Adding Plugins
+
+Plugins are added via drag-and-drop from the [Sidebar](/ui/sidebar):
+
+### Supported Plugin Types
+
+<CardGroup cols={3}>
+  <Card title="VST2 Instruments" icon="guitar">
+    Virtual instruments (.dll files) for MIDI tracks
+  </Card>
+  <Card title="VST2 Effects" icon="wand-magic-sparkles">
+    Audio effects (.dll files) for any track
+  </Card>
+  <Card title="Built-in Effects" icon="wrench">
+    Native Lumix audio processors
+  </Card>
+</CardGroup>
+
+### Drag-and-Drop Workflow
+
+<Steps>
+  <Step title="Select a track">
+    Click on a track in the Arrangement View to select it and view its Devices
+  </Step>
+  
+  <Step title="Find your plugin">
+    Navigate to the plugin in the Sidebar:
+    - **Plug-Ins** tab for VST2 files
+    - **Audio Effects** tab for built-in effects
+    - **Instruments** tab for VSTi instruments
+  </Step>
+  
+  <Step title="Drag to Devices View">
+    Click and hold on the plugin, then drag it into the Devices View area
+  </Step>
+  
+  <Step title="Release to add">
+    Release the mouse button to add the plugin to the track's processing chain
+  </Step>
+</Steps>
+
+<Warning>
+  If you try to add an incompatible plugin (like a VSTi to an audio track without MIDI), you'll see an error dialog: "Can't add plugin here" or "Can't add vst here".
+</Warning>
+
+### Plugin Placement Rules
+
+- **Instrument plugins** always appear first (leftmost) in the chain
+- **Effect plugins** are added to the right in the order you drop them
+- Maximum visible plugins varies by track type:
+  - Audio tracks: ~6 plugins
+  - MIDI tracks: ~5 plugins (instrument + effects)
+
+## Plugin Cards
+
+### VST2 Plugin Cards
+
+Each VST2 plugin is displayed as a card showing:
+
+```
+┌─────────────────────────┐
+│ ● 🔧 Plugin Name       │  ← Menu bar (orange when selected)
+├─────────────────────────┤
+│ VST Type: Fx/Instrument │
+│ Parameters: 24          │
+│ In: 2    Out: 2         │
+└─────────────────────────┘
+```
+
+**Menu Bar Icons:**
+- **●** (toggle) - Enable/disable plugin (orange when active)
+- **🔧** (wrench) - Click to open the plugin's GUI window
+
+**Information Display:**
+- **VST Type** - "Fx" for effects, "Instrument" for VSTi
+- **Parameters** - Number of adjustable parameters
+- **In/Out** - Number of audio input/output channels
+
+### Built-in Plugin Cards
+
+Built-in plugins render custom cards based on their implementation, typically showing:
+- Plugin name and category
+- Key parameters with interactive controls
+- Visual feedback (meters, graphs, etc.)
+
+## Selecting Plugins
+
+Click on a plugin card to select it:
+
+- **Single Selection** - Click a plugin to select only that plugin
+- **Multi-Selection** - `Ctrl + Click` to add/remove plugins from selection
+- **Deselect All** - Click in empty space (without Ctrl)
+
+**Visual Feedback:**
+- Selected plugins have a brighter menu bar color
+- Unselected: RGB(0.28, 0.28, 0.28)
+- Selected: Custom selection color from theme
+
+<Info>
+  Multi-selection allows you to duplicate or delete multiple plugins at once using keyboard shortcuts.
+</Info>
+
+## Plugin Operations
+
+### Keyboard Shortcuts
+
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| `Delete` | Delete selected plugins | Removes from chain permanently |
+| `Ctrl + D` | Duplicate selected plugins | Creates copies with same settings |
+| `Left Arrow` | Move plugin left in chain | Only works with single selection |
+| `Right Arrow` | Move plugin right in chain | Only works with single selection |
+
+<Warning>
+  Plugin reordering with arrow keys only works when exactly **one** plugin is selected. Multi-selection disables this feature.
+</Warning>
+
+### Reordering Plugins
+
+The order of plugins in the chain matters for sound processing. To reorder:
+
+1. Select a single plugin by clicking on it
+2. Press `Left Arrow` to move it earlier in the chain
+3. Press `Right Arrow` to move it later in the chain
+
+**Signal Flow Example:**
+```
+[Instrument] → [EQ] → [Compressor] → [Reverb] → Output
+```
+
+Moving the reverb left would change the chain to:
+```
+[Instrument] → [EQ] → [Reverb] → [Compressor] → Output
+```
+
+### Enabling/Disabling Plugins
+
+Click the toggle button (●) on a plugin's menu bar to bypass it:
+- **Enabled** - Plugin processes audio (orange indicator)
+- **Disabled** - Audio passes through unchanged (gray indicator)
+
+<Tip>
+  Disabling plugins is useful for A/B comparisons and troubleshooting, without removing them from your chain.
+</Tip>
+
+### Opening Plugin Windows
+
+For VST2 plugins, click the wrench icon (🔧) to open the plugin's native GUI:
+- Each plugin has its own window with custom controls
+- Window management respects preferences (see [Preferences](/ui/preferences))
+- Multiple plugin windows can be open simultaneously (if enabled in preferences)
+
+## Plugin Chain Visualization
+
+The Devices View uses a horizontal scrollable container to display the plugin chain:
+
+### Visual Layout
+
+- **Background Color** - Dark gray (RGB: 0.22, 0.22, 0.22)
+- **Plugin Cards** - Square cards sized to viewport height
+- **Spacing** - 10px between cards
+- **Scrollbar** - Custom styled at bottom of view
+
+### Empty State
+
+When no plugins are loaded, helpful text appears:
+
+- **Audio Tracks** - "Drop Audio Effects Here"
+- **MIDI Tracks** - "Drop Instruments or Audio Effects Here"
+
+This text is centered in the available space and disappears once plugins are added.
+
+### Custom Scrollbar
+
+A custom white scrollbar (10px thick) appears at the bottom when the plugin chain exceeds the visible width:
+- Scrollbar length adjusts based on content overflow
+- Position indicator shows relative scroll position
+- Offset of ±100 pixels from edges
+
+## Navigation and Panning
+
+### Middle Mouse Panning
+
+When hovering over the Devices View:
+- **Middle Mouse Button + Drag** - Pan horizontally through the plugin chain
+- Cursor changes to resize-all (⤢) during panning
+- Smooth scrolling follows mouse movement
+
+<Note>
+  Panning is especially useful for long plugin chains that extend beyond the visible area.
+</Note>
+
+## Track Type Compatibility
+
+### Audio Tracks
+
+Audio tracks can have:
+- **No Instrument** - Only audio effects
+- **Effect Chain** - Up to 6+ plugins in series
+
+### MIDI Tracks
+
+MIDI tracks support:
+- **One Instrument** - VSTi at the start of the chain
+- **Effect Chain** - Audio effects after the instrument
+- Combined total of ~5 plugins visible
+
+### Instrument Handling
+
+Instrument plugins have special behavior:
+- Only MIDI tracks can load VSTi plugins
+- Instrument always appears first in the chain
+- Delete key works on instruments (removes from `PluginInstrument` slot)
+- Only one instrument per track
+
+## Technical Implementation
+
+### Plugin Management
+
+Plugins are managed through the track's `PluginChainSampleProvider`:
+
+```csharp
+// Adding a plugin
+SelectedTrack.Engine.PluginChainSampleProvider.AddPlugin(plugin);
+
+// Removing a plugin
+SelectedTrack.Engine.PluginChainSampleProvider.RemovePlugin(plugin);
+
+// Accessing the chain
+var fxPlugins = track.Engine.PluginChainSampleProvider.FxPlugins;
+var instrument = track.Engine.PluginChainSampleProvider.PluginInstrument;
+```
+
+### Deletion Workflow
+
+Plugins are marked for deletion with a flag, then removed in the next render cycle:
+
+```csharp
+// 1. User presses Delete key
+plugin.DeleteRequested = true;
+
+// 2. Next frame, find marked plugins
+var deletedPlugins = FxPlugins.FindAll(p => p.DeleteRequested);
+
+// 3. Remove from chain
+deletedPlugins.ForEach(del => RemovePlugin(del));
+```
+
+This deferred deletion prevents issues with modifying collections during iteration.
+
+### Drag-Drop Implementation
+
+The drag-drop system uses ImGui payloads:
+
+<Tabs>
+  <Tab title="VST2 Plugins">
+    ```csharp
+    // Payload: "PLUGIN_DRAG"
+    if (Path.GetExtension(file) == ".dll")
+    {
+        var vst = new VstPlugin(filePath);
+        var processor = new VstAudioProcessor(vst);
+        track.Engine.PluginChainSampleProvider.AddPlugin(processor);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Built-in Plugins">
+    ```csharp
+    // Payload: "BUILTIN_PLUGIN_DRAG"
+    var pluginInstance = DraggedBuiltInPlugin as IAudioProcessor;
+    track.Engine.PluginChainSampleProvider.AddPlugin(pluginInstance);
+    ```
+  </Tab>
+</Tabs>
+
+### Drop Prevention
+
+A `_hasDropped` flag prevents duplicate plugin additions during a single drag operation:
+- Set to `true` when plugin is added
+- Reset to `false` when mouse drag ends
+- Prevents multiple additions if mouse hovers during release
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Plugin Ordering">
+    Consider these common signal flow patterns:
+    - **Corrective before creative** - EQ before reverb
+    - **Dynamics early** - Compression near the start
+    - **Modulation before delays** - Chorus before reverb
+    - **Limiting last** - Brick wall limiter at the end
+  </Accordion>
+  
+  <Accordion title="CPU Management">
+    To optimize performance:
+    - Disable unused plugins rather than deleting them
+    - Limit the number of active plugins per track
+    - Use built-in effects when possible (lower overhead)
+    - Freeze/bounce tracks with heavy plugin chains
+  </Accordion>
+  
+  <Accordion title="Organization">
+    Keep your plugin chains maintainable:
+    - Name plugins descriptively in their GUI
+    - Group related effects (all EQs, all compression)
+    - Use consistent chains across similar tracks
+    - Document special settings in project notes
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Sidebar" icon="folder-open" href="/ui/sidebar">
+    Browse and drag plugins from the file browser
+  </Card>
+  <Card title="Preferences" icon="gear" href="/ui/preferences">
+    Configure plugin paths and window behavior
+  </Card>
+  <Card title="Built-in Effects" icon="wrench" href="/plugins/built-in">
+    Documentation for native Lumix processors
+  </Card>
+  <Card title="VST2 Support" icon="puzzle-piece" href="/plugins/vst2">
+    Working with external VST2 plugins
+  </Card>
+</CardGroup>

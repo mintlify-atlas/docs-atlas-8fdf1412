@@ -1,0 +1,447 @@
+---
+title: "Preferences"
+description: "Configure Lumix settings for audio, plugins, and appearance"
+icon: "gear"
+---
+
+# Preferences
+
+The Preferences window is where you configure Lumix to work with your audio hardware, plugin libraries, and customize the application to your workflow. Access it from the **View** menu.
+
+<img
+  src="/images/preferences-placeholder.png"
+  alt="Preferences window showing audio configuration options"
+/>
+
+## Opening Preferences
+
+Access Preferences via:
+- **Menu Bar** → View → Preferences
+- The window appears centered at 720x720 pixels
+- Cannot be resized or collapsed
+
+<Note>
+  The Preferences window must be closed before you can interact with other parts of Lumix.
+</Note>
+
+## Preferences Tabs
+
+Preferences are organized into tabs across the top:
+
+<Tabs>
+  <Tab title="Look and Feel">
+    Appearance and theme customization (planned feature)
+  </Tab>
+  <Tab title="Audio">
+    Audio device, driver, and latency configuration
+  </Tab>
+  <Tab title="Plugins">
+    Plugin folder paths and window behavior
+  </Tab>
+  <Tab title="Other">
+    Additional settings (planned)
+  </Tab>
+</Tabs>
+
+## Audio Tab
+
+Configure your audio interface and playback settings.
+
+### Audio Device
+
+Select your audio driver and output device:
+
+#### Driver Type
+
+Choose between available audio drivers:
+
+<CardGroup cols={2}>
+  <Card title="WASAPI" icon="windows">
+    Windows Audio Session API - Standard Windows driver with exclusive mode support
+  </Card>
+  <Card title="ASIO" icon="gauge-high">
+    Low-latency professional audio driver (requires ASIO-compatible interface)
+  </Card>
+</CardGroup>
+
+**Selecting a Driver:**
+1. Click the **Driver Type** dropdown
+2. Choose WASAPI or ASIO
+3. Lumix reinitializes audio system with new driver
+
+<Warning>
+  ASIO option is disabled if no ASIO drivers are installed on your system. Install your audio interface's ASIO driver first.
+</Warning>
+
+#### Audio Device
+
+Select your physical audio output:
+
+**WASAPI Devices:**
+- Lists all Windows audio devices
+- Shows device name (e.g., "Speakers", "Headphones", "USB Audio Device")
+- Uses exclusive mode for better performance
+
+**ASIO Devices:**
+- Lists installed ASIO drivers
+- Typically shows audio interface brand/model
+- Direct hardware communication for minimal latency
+
+**Changing Devices:**
+1. Click the **Audio Device** dropdown
+2. Select your desired output
+3. Audio system reinitializes immediately
+
+### Channel Configuration
+
+<Info>
+  Channel configuration options appear only when using ASIO drivers.
+</Info>
+
+**Input Config** - Configure input channel routing (planned)
+**Output Config** - Configure output channel routing (planned)
+
+### WASAPI Latency
+
+<Note>
+  This setting is currently disabled but will control the buffer size for WASAPI exclusive mode.
+</Note>
+
+Adjust the latency/buffer size for WASAPI mode:
+
+- **Range:** 15ms - 500ms
+- **Default:** 50ms
+- **Units:** Milliseconds
+- **Control:** Drag slider or double-click to reset to default
+
+**Latency Impact:**
+- **Lower (15-30ms)** - Responsive playback, higher CPU usage
+- **Medium (50-100ms)** - Balanced performance
+- **Higher (200-500ms)** - Safer for slower systems, noticeable delay
+
+### Hardware Setup (ASIO)
+
+When using ASIO, access your audio interface's control panel:
+
+1. Click **Hardware Setup** button
+2. Your interface's native control panel opens
+3. Configure buffer size, sample rate, routing, etc.
+4. Changes apply immediately in Lumix
+
+<Tip>
+  ASIO buffer size is controlled in the hardware control panel, not in Lumix. Set it to 128-256 samples for a balance of low latency and stability.
+</Tip>
+
+### Sample Rate
+
+<Warning>
+  Sample rate selection is currently disabled. Lumix uses your audio device's default sample rate.
+</Warning>
+
+Displays the current sample rate:
+
+**In/Out Sample Rate** - Shows active sample rate (e.g., 44100, 48000, 96000)
+
+**Common Sample Rates:**
+- **22050 Hz** - Low quality, small files
+- **44100 Hz** - CD quality, standard for music
+- **48000 Hz** - Video standard, professional audio
+- **96000 Hz** - High resolution, larger files
+- **192000 Hz** - Ultra high resolution, very large files
+
+### Latency Display
+
+<Warning>
+  Latency reporting is not yet implemented. These fields will show actual input/output latency in a future update.
+</Warning>
+
+Planned features:
+- **Buffer Size** - Current audio buffer in samples
+- **Input Latency** - Delay from input to processing
+- **Output Latency** - Delay from processing to output
+
+## Plugins Tab
+
+Manage plugin locations and window behavior.
+
+### Plug-In Sources
+
+Configure where Lumix looks for plugins:
+
+#### VST2 Plug-In Custom Folder
+
+Set the root folder for your VST2 plugins:
+
+<Steps>
+  <Step title="Click Browse">
+    Click the **Browse** button next to VST2 folder path
+  </Step>
+  
+  <Step title="Navigate to VST folder">
+    Use the folder picker to find your VST2 plugins directory (e.g., `C:\Program Files\Steinberg\vstplugins`)
+  </Step>
+  
+  <Step title="Confirm selection">
+    Click OK to set the path
+  </Step>
+  
+  <Step title="Browse plugins">
+    Plugins from this folder now appear in Sidebar → Plug-Ins tab
+  </Step>
+</Steps>
+
+**Current Path Display:**
+- Shows full path if configured: `C:\Program Files\Steinberg\vstplugins`
+- Shows "No VST2 folder set" if not configured (grayed text)
+
+<Note>
+  Lumix recursively scans subfolders, so you can organize plugins into manufacturer/category folders.
+</Note>
+
+### Plug-In Windows
+
+Control how plugin GUI windows behave:
+
+#### Multiple Plug-in Windows
+
+Allow multiple plugin GUIs to be open simultaneously:
+
+- **On** - Open as many plugin windows as needed (default: Off)
+- **Off** - Opening a new plugin window closes the previous one
+
+**Use Cases:**
+- **On** - When comparing settings across plugins
+- **Off** - Cleaner desktop, less window management
+
+#### Auto-Hide Plug-In Windows
+
+Automatically hide plugin windows when switching away:
+
+- **On** - Windows hide when you click Lumix main window (default: Off)
+- **Off** - Windows stay visible until manually closed
+
+**Use Cases:**
+- **On** - Reduce desktop clutter, windows restore on plugin focus
+- **Off** - Always-visible plugin controls
+
+#### Auto-Open Plug-In Windows
+
+Automatically open plugin GUI when added to track:
+
+- **On** - Plugin window opens immediately on drag-drop (default: Off)
+- **Off** - Click wrench icon to manually open window
+
+**Use Cases:**
+- **On** - Immediate access to configure new plugins
+- **Off** - Add plugins without interrupting workflow
+
+### Toggle Controls
+
+Plugin window options use orange toggle buttons:
+- **Orange background** - Setting is ON
+- **Gray background** - Setting is OFF
+- Click to toggle between states
+
+## Look and Feel Tab
+
+<Note>
+  This tab is planned for future implementation. It will include theme selection, color schemes, font sizes, and UI customization options.
+</Note>
+
+Planned features:
+- Color theme selection (dark/light/custom)
+- Accent color customization
+- Font size and family
+- UI scale factor
+- Waveform color schemes
+
+## Other Tab
+
+<Note>
+  Additional preference categories will be added here as Lumix development continues.
+</Note>
+
+Planned features:
+- Keyboard shortcut customization
+- Project defaults (BPM, time signature, etc.)
+- Autosave settings
+- File path preferences
+
+## Configuration Persistence
+
+Lumix saves your preferences automatically:
+
+- **On Change** - Settings save immediately when modified
+- **No Save Button** - Changes apply and persist instantly
+- **Restart Not Required** - Most changes take effect immediately
+
+<Warning>
+  Changing audio drivers or devices will temporarily interrupt playback as the audio system reinitializes.
+</Warning>
+
+## Audio Driver Comparison
+
+| Feature | WASAPI | ASIO |
+|---------|--------|------|
+| **Availability** | All Windows systems | Requires ASIO driver |
+| **Latency** | Medium (15-500ms) | Very Low (1-10ms typical) |
+| **Configuration** | Simple (Lumix only) | Hardware control panel |
+| **CPU Usage** | Moderate | Low |
+| **Best For** | Casual use, built-in audio | Professional interfaces |
+
+### Choosing a Driver
+
+<AccordionGroup>
+  <Accordion title="Use WASAPI When:">
+    - Using built-in computer audio or simple USB audio
+    - No ASIO driver available for your hardware
+    - Latency under 50ms is acceptable
+    - You want simple, one-click configuration
+  </Accordion>
+  
+  <Accordion title="Use ASIO When:">
+    - You have a professional audio interface
+    - Recording live inputs (MIDI keyboard, vocals, guitar)
+    - Need the absolute lowest latency (under 10ms)
+    - Working with VST instruments in real-time
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### No Audio Output
+
+<Steps>
+  <Step title="Check device selection">
+    Verify the correct output device is selected in Audio Device dropdown
+  </Step>
+  
+  <Step title="Check driver compatibility">
+    If using ASIO, ensure your interface's driver is properly installed
+  </Step>
+  
+  <Step title="Test in hardware panel">
+    Click Hardware Setup (ASIO) and test output in the interface control panel
+  </Step>
+  
+  <Step title="Reinitialize audio">
+    Try switching drivers (WASAPI ↔ ASIO) to reinitialize the audio system
+  </Step>
+</Steps>
+
+### ASIO Option Grayed Out
+
+**Cause:** No ASIO drivers detected on system
+
+**Solution:**
+1. Install your audio interface's ASIO driver from manufacturer's website
+2. Restart Lumix
+3. ASIO option should now be available
+
+### Plugins Not Appearing
+
+**Cause:** VST2 folder not configured or incorrect path
+
+**Solution:**
+1. Go to Preferences → Plugins tab
+2. Click Browse next to VST2 Plug-In Custom Folder
+3. Select the correct folder (usually `C:\Program Files\Steinberg\vstplugins` or similar)
+4. Check Sidebar → Plug-Ins tab for plugins
+
+### High CPU Usage / Crackling Audio
+
+**Cause:** Buffer size too small / latency too low
+
+**Solution:**
+- **WASAPI:** Increase latency slider to 100-200ms (when enabled)
+- **ASIO:** Open Hardware Setup and increase buffer size to 512 or 1024 samples
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Audio Setup">
+    1. **Start with defaults** - Use recommended settings before tweaking
+    2. **Test thoroughly** - Play a project after changing audio settings
+    3. **Note your settings** - Document working configurations
+    4. **Match sample rates** - Ensure all audio files match device sample rate
+  </Tab>
+  
+  <Tab title="Plugin Management">
+    1. **Organize VST folder** - Use subfolders by manufacturer/type
+    2. **Remove broken plugins** - Delete problematic DLLs from VST folder
+    3. **Enable auto-open** - If you always configure new plugins immediately
+    4. **Disable multiple windows** - If you only edit one plugin at a time
+  </Tab>
+  
+  <Tab title="Performance">
+    1. **Use ASIO** - If available, for best performance
+    2. **Increase latency** - If experiencing dropouts or clicks
+    3. **Close plugin windows** - When not actively using them
+    4. **Match buffer size** - To your workflow (recording vs. mixing)
+  </Tab>
+</Tabs>
+
+## Technical Details
+
+### Audio Initialization
+
+When you change audio settings, Lumix calls:
+
+```csharp
+// Set new driver
+AudioSettings.SetDriver(AudioDriver.Wasapi);
+
+// Reinitialize with new settings
+AudioSettings.Init(true); // true = force reinit
+
+// Update output device
+AudioSettings.UpdateAudioOutput(outputDevice, deviceName);
+```
+
+### WASAPI Exclusive Mode
+
+Lumix uses WASAPI in exclusive mode for better performance:
+
+```csharp
+var wasapi = new WasapiOut(
+    device.Value, 
+    AudioClientShareMode.Exclusive,  // Exclusive mode
+    true,                             // Use event sync
+    (int)AudioSettings.WasapiLatency  // Latency in ms
+);
+```
+
+Exclusive mode bypasses Windows audio mixing for lower latency and better quality.
+
+### Plugin Preferences Storage
+
+Plugin settings are stored in static properties:
+
+```csharp
+public static class PluginsPreferences
+{
+    public static string VST2PluginsPath { get; set; }
+    public static bool MultiplePluginWindows { get; set; }
+    public static bool AutoHidePluginWindows { get; set; }
+    public static bool AutoOpenPluginWindows { get; set; }
+}
+```
+
+These persist between sessions via serialization.
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Sidebar" icon="sidebar" href="/ui/sidebar">
+    Browse plugins from your configured VST2 folder
+  </Card>
+  <Card title="Devices View" icon="plug" href="/ui/devices-view">
+    Load and manage plugins on tracks
+  </Card>
+  <Card title="Audio Engine" icon="engine" href="/core-concepts/audio-engine">
+    How Lumix processes audio internally
+  </Card>
+  <Card title="Supported Formats" icon="file" href="/core-concepts/file-formats">
+    Audio and MIDI file compatibility
+  </Card>
+</CardGroup>

@@ -1,0 +1,373 @@
+---
+title: Built-in Plugins
+description: Native audio effects included with Lumix
+---
+
+Lumix includes built-in audio processors that provide essential mixing and EQ functionality. These native plugins are optimized for performance and seamlessly integrate with the plugin chain.
+
+## Plugin Categories
+
+Built-in plugins are organized by category:
+
+```csharp
+public enum BuiltInCategory
+{
+    EQ,
+    Utilities,
+}
+```
+
+## BuiltInPlugin Base Class
+
+All built-in plugins extend the `BuiltInPlugin` abstract class:
+
+```csharp
+public abstract class BuiltInPlugin
+{
+    public string PluginId { get; }  // Unique GUID
+    public abstract string PluginName { get; }
+    public abstract BuiltInCategory Category { get; }
+    
+    public void RenderRect(IAudioProcessor AudioProcessor);
+    public abstract void RenderRectContent();
+}
+```
+
+**Key Features:**
+- Unique identifier per instance
+- ImGui-based UI rendering
+- Category organization
+- Integrated enable/disable toggle
+
+## Utility Plugin
+
+The Utility plugin provides essential mixing controls for gain, panning, stereo width, and phase manipulation.
+
+### Features
+
+<CardGroup cols={2}>
+  <Card title="Volume Control" icon="volume-high">
+    Adjustable gain from -90 dB to +35 dB
+  </Card>
+  <Card title="Stereo Width" icon="arrows-left-right">
+    Width adjustment from -100% to +400%
+  </Card>
+  <Card title="Pan Control" icon="sliders">
+    Left/right panning from -50 to +50
+  </Card>
+  <Card title="Phase Tools" icon="wave-square">
+    Mono mode and per-channel phase inversion
+  </Card>
+</CardGroup>
+
+### Implementation
+
+```csharp
+public class UtilityPlugin : BuiltInPlugin, IAudioProcessor
+{
+    private float _leftVolume = 1.0f;
+    private float _rightVolume = 1.0f;
+    private float _pan = 0.0f;
+    private float _width = 0.0f;
+    private bool _mono;
+    private bool _invertLeft;
+    private bool _invertRight;
+}
+```
+
+### Audio Processing
+
+The Utility plugin processes audio in the following order:
+
+**1. Mono/Width Processing**
+
+```csharp
+if (_mono)
+{
+    // Mix left and right into mono
+    float monoSample = (left + right) / 2;
+    left = monoSample;
+    right = monoSample;
+}
+else
+{
+    // Apply width adjustment
+    float mid = (left + right) / 2;   // Mid (mono) component
+    float side = (left - right) / 2;  // Side (stereo) component
+    
+    // Adjust side component based on width
+    side *= (_width + 100f) / 100f;
+    
+    left = mid + side;
+    right = mid - side;
+}
+```
+
+**2. Phase Inversion**
+
+```csharp
+if (_invertLeft)
+    left = -left;
+if (_invertRight)
+    right = -right;
+```
+
+**3. Panning**
+
+```csharp
+float panLeft = _pan <= 0 ? 1.0f : 1.0f - _pan;
+float panRight = _pan >= 0 ? 1.0f : 1.0f + _pan;
+```
+
+**4. Volume Application**
+
+```csharp
+outputBuffer[i] = left * _leftVolume * panLeft;
+outputBuffer[i + 1] = right * _rightVolume * panRight;
+```
+
+### Gain Calculation
+
+Volume is converted from decibels to linear gain:
+
+```csharp
+private void SetGain(float gain)
+{
+    _leftVolume = gain;
+    _rightVolume = gain;
+}
+
+// In UI callback:
+float linearVolume = (float)Math.Pow(10, _volumeUi / 20);
+SetGain(linearVolume);
+```
+
+<Note>
+The gain conversion formula: `linear = 10^(dB / 20)` ensures proper decibel-to-linear scaling.
+</Note>
+
+### Stereo Width Algorithm
+
+Width control uses mid-side processing:
+
+- **Mid** = `(L + R) / 2` - Mono information (center)
+- **Side** = `(L - R) / 2` - Stereo information (width)
+- **Width Scaling** = `side * ((width + 100) / 100)`
+- **Reconstruction**: `L = mid + side`, `R = mid - side`
+
+**Width Values:**
+- `-100%` - Inverted stereo
+- `0%` - Normal stereo
+- `100%` - Doubled width
+- `400%` - Maximum width (5x)
+
+## SimpleEq Plugin
+
+The SimpleEq plugin provides basic filtering and EQ functionality using BiQuad filters.
+
+### Filter Types
+
+```csharp
+private enum EqType
+{
+    None,
+    LowPass,
+    HighPass,
+    LowShelf,
+    HighShelf
+}
+```
+
+### Parameters
+
+<ParamField path="_frequency" type="float" default="4000">
+  Filter cutoff/center frequency (0 - 22000 Hz)
+</ParamField>
+
+<ParamField path="_q" type="float" default="0.71">
+  Filter resonance/bandwidth (0.1 - 18)
+</ParamField>
+
+<ParamField path="_gain" type="float" default="0">
+  Shelf gain in decibels (-15 to +15 dB) - Only for shelf filters
+</ParamField>
+
+### Implementation
+
+```csharp
+public class SimpleEqPlugin : BuiltInPlugin, IAudioProcessor
+{
+    private EqType _eqType;
+    private float _frequency = 4000f;
+    private float _q = 0.71f;
+    private float _gain = 0f;
+}
+```
+
+### Filter Processing
+
+```csharp
+public void Process(float[] input, float[] output, int samplesRead)
+{
+    if (_eqType == EqType.None)
+        return;
+    
+    BiQuadFilter eq = null;
+    switch (_eqType)
+    {
+        case EqType.LowPass:
+            eq = BiQuadFilter.LowPassFilter(AudioSettings.SampleRate, _frequency, _q);
+            break;
+        case EqType.HighPass:
+            eq = BiQuadFilter.HighPassFilter(AudioSettings.SampleRate, _frequency, _q);
+            break;
+        case EqType.LowShelf:
+            eq = BiQuadFilter.LowShelf(AudioSettings.SampleRate, _frequency, _q, _gain);
+            break;
+        case EqType.HighShelf:
+            eq = BiQuadFilter.HighShelf(AudioSettings.SampleRate, _frequency, _q, _gain);
+            break;
+    }
+    
+    for (int i = 0; i < samplesRead; i += 2)
+    {
+        output[i] = eq.Transform(input[i]);       // Left channel
+        output[i + 1] = eq.Transform(input[i + 1]); // Right channel
+    }
+}
+```
+
+<Warning>
+A new `BiQuadFilter` is created on every process call. This design prioritizes real-time parameter updates but has performance implications. Consider caching filters if parameters don't change frequently.
+</Warning>
+
+### Filter Characteristics
+
+<AccordionGroup>
+  <Accordion title="Low Pass Filter">
+    Allows frequencies below the cutoff to pass through while attenuating higher frequencies.
+    
+    - **Use Cases**: Removing high-frequency noise, darkening bright sounds
+    - **Q Parameter**: Higher values create resonance at cutoff frequency
+  </Accordion>
+  
+  <Accordion title="High Pass Filter">
+    Allows frequencies above the cutoff to pass through while attenuating lower frequencies.
+    
+    - **Use Cases**: Removing rumble, reducing low-end muddiness
+    - **Q Parameter**: Higher values create resonance at cutoff frequency
+  </Accordion>
+  
+  <Accordion title="Low Shelf">
+    Boosts or cuts frequencies below the cutoff frequency.
+    
+    - **Use Cases**: Bass adjustment, low-end enhancement
+    - **Gain**: Positive values boost, negative values cut
+  </Accordion>
+  
+  <Accordion title="High Shelf">
+    Boosts or cuts frequencies above the cutoff frequency.
+    
+    - **Use Cases**: Treble adjustment, high-end enhancement
+    - **Gain**: Positive values boost, negative values cut
+  </Accordion>
+</AccordionGroup>
+
+## UI Integration
+
+Built-in plugins feature ImGui-based interfaces with:
+
+### Common UI Elements
+
+- **Enable Toggle** - Round toggle button (orange when active)
+- **Plugin Name** - Displayed in menu bar
+- **Selection Highlight** - Visual feedback for selected plugins
+
+### Utility Plugin UI
+
+```csharp
+public override void RenderRectContent()
+{
+    // Knobs for Gain, Width, Pan
+    ImGuiKnobs.Knob("Gain", ref _volumeUi, -90f, 35f, 0.1f, "%.1f", 
+        ImGuiKnobVariant.Wiper, 40, ImGuiKnobFlags.AlwaysClamp);
+    
+    ImGuiKnobs.Knob("Width", ref _width, -100f, 400f, 1f, "%.0f", 
+        ImGuiKnobVariant.Space, 40, ImGuiKnobFlags.AlwaysClamp);
+    
+    ImGuiKnobs.Knob("Pan", ref _panUi, -50f, 50f, 0.1f, "%.0f", 
+        ImGuiKnobVariant.WiperDot, 40, ImGuiKnobFlags.AlwaysClamp);
+    
+    // Toggle buttons for Mono, Invert L, Invert R
+    UiElement.Toggle(Fontaudio.Mute, _mono, ...);
+    UiElement.Toggle($"{Fontaudio.Stereo} L", _invertLeft, ...);
+    UiElement.Toggle($"{Fontaudio.Stereo} R", _invertRight, ...);
+}
+```
+
+**UI Features:**
+- **Knob Controls** - Different visual styles for different parameters
+- **Double-click Reset** - Returns parameters to default values
+- **Fontaudio Icons** - Audio-specific iconography
+- **Conditional Disable** - Width knob disabled in mono mode
+
+### SimpleEq Plugin UI
+
+```csharp
+public override void RenderRectContent()
+{
+    // Parameter knobs
+    ImGuiKnobs.Knob("Freq", ref _frequency, 0, 22000f, 10f, "%.0f", 
+        ImGuiKnobVariant.WiperOnly, 40, ImGuiKnobFlags.AlwaysClamp);
+    
+    ImGuiKnobs.Knob("Q", ref _q, 0.1f, 18f, 0.01f, "%.2f", 
+        ImGuiKnobVariant.WiperOnly, 40, ImGuiKnobFlags.AlwaysClamp);
+    
+    // Gain (disabled for pass filters)
+    ImGui.BeginDisabled(_eqType != EqType.LowShelf && _eqType != EqType.HighShelf);
+    ImGuiKnobs.Knob("Gain", ref _gain, -15f, 15f, 0.1f, "%.1f", 
+        ImGuiKnobVariant.Wiper, 40, ImGuiKnobFlags.AlwaysClamp);
+    ImGui.EndDisabled();
+    
+    // Filter type combo box with icons
+    ImGui.BeginCombo("##Filter", $"{_icon} {_eqType}");
+    // ... filter selection
+}
+```
+
+**UI Features:**
+- **Contextual Controls** - Gain knob only active for shelf filters
+- **Visual Feedback** - Filter type icon displayed in UI
+- **Combo Selection** - Dropdown menu for filter type selection
+
+## Default Plugin Chain
+
+Every track in Lumix includes these plugins by default:
+
+```csharp
+private List<IAudioProcessor> _fxPlugins = new() 
+{ 
+    new UtilityPlugin(), 
+    new SimpleEqPlugin() 
+};
+```
+
+This ensures basic mixing and EQ capabilities are always available.
+
+<CardGroup cols={1}>
+  <Card title="Plugin Chain Management" icon="link" href="/plugins/plugin-chain">
+    Learn how built-in plugins are organized in the processing chain
+  </Card>
+</CardGroup>
+
+## Performance Considerations
+
+<Info>
+Built-in plugins are lightweight and optimized for real-time processing:
+- **Utility Plugin**: Simple mathematical operations per sample
+- **SimpleEq Plugin**: Single BiQuad filter per channel
+</Info>
+
+<Warning>
+The SimpleEq plugin creates a new filter instance on every process call, which may impact performance with rapid parameter changes. This trade-off ensures immediate response to parameter adjustments.
+</Warning>

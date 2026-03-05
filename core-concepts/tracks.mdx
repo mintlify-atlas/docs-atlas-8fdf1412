@@ -1,0 +1,332 @@
+---
+title: Tracks
+description: Understanding the track system in Lumix DAW
+---
+
+Tracks are the fundamental building blocks of your project in Lumix. Each track can contain multiple clips and has its own audio processing chain, controls, and properties.
+
+## Track Types
+
+Lumix supports three types of tracks:
+
+<CardGroup cols={3}>
+  <Card title="Audio Tracks" icon="waveform-lines">
+    For recording and playing back audio files like WAV, MP3, and other audio formats
+  </Card>
+  <Card title="MIDI Tracks" icon="music">
+    For MIDI data, virtual instruments, and sequencing
+  </Card>
+  <Card title="Group Tracks" icon="layer-group">
+    For organizing and processing multiple tracks together
+  </Card>
+</CardGroup>
+
+### Track Type Enum
+
+```csharp Lumix/Tracks/Track.cs
+public enum TrackType
+{
+    Audio,
+    Midi,
+    Group
+}
+```
+
+## Core Properties
+
+Every track in Lumix has the following core properties:
+
+### Identity & Naming
+
+```csharp Lumix/Tracks/Track.cs
+public string Id { get; set; } = Guid.NewGuid().ToString();
+public string Name { get; protected set; }
+```
+
+Each track has a unique identifier and a user-customizable name.
+
+### Audio Properties
+
+```csharp Lumix/Tracks/Track.cs
+public float Volume { get; private set; }
+public float Pan { get; private set; }
+public bool Enabled { get; private set; } = true;
+public bool Solo { get; private set; }
+public bool RecordOnStart { get; private set; }
+```
+
+<Info>
+  Volume ranges from -90dB to +6dB and is converted to linear gain using the formula: `Math.Pow(10, volume / 20)`
+</Info>
+
+### Visual Properties
+
+```csharp Lumix/Tracks/Track.cs
+public Vector4 Color { get; protected set; }
+```
+
+Each track has a customizable color that can be applied to all its clips.
+
+### Clips Collection
+
+```csharp Lumix/Tracks/Track.cs
+/// <summary>
+/// The clips of this track
+/// </summary>
+public List<Clip> Clips = new();
+```
+
+Tracks contain a collection of clips that are arranged on the timeline.
+
+## Audio Engine
+
+Each track has its own audio processing engine:
+
+```csharp Lumix/Tracks/Track.cs
+public TrackEngine Engine { get; protected set; }
+```
+
+The engine handles:
+- Audio/MIDI playback
+- Plugin processing chain
+- Recording
+- Volume metering
+- Stereo panning
+
+## Time Selection
+
+Tracks support time-based selection for editing operations:
+
+```csharp Lumix/Tracks/Track.cs
+/// <summary>
+/// Selected time of the track in musical time
+/// </summary>
+public TimeSelection TimeSelectionArea { get; protected set; } = new();
+```
+
+<Steps>
+  <Step title="Start Selection">
+    Click on the track to begin a time selection
+  </Step>
+  <Step title="Drag to Extend">
+    Drag to extend the selection area across the timeline
+  </Step>
+  <Step title="Create Clip">
+    Use **Ctrl+Shift+M** (MIDI tracks) to create a clip from the selected area
+  </Step>
+</Steps>
+
+## Track Controls
+
+Tracks provide several control methods:
+
+### Volume Control
+
+Volume is controlled via a drag slider that ranges from -90dB to +6dB:
+
+```csharp Lumix/Tracks/Track.cs
+if (UiElement.DragSlider($"{FontAwesome6.VolumeHigh}##track_volume", 105, ref _volume, 0.1f, -90f, 6f, "%.1f", ImGuiSliderFlags.AlwaysClamp | ImGuiSliderFlags.NoInput))
+{
+    float linearVolume = (float)Math.Pow(10, _volume / 20);
+    Engine.StereoSampleProvider.SetGain(linearVolume);
+}
+```
+
+Double-click the volume slider to reset to 0dB (unity gain).
+
+### Panning Control
+
+Pan ranges from -50 (full left) to +50 (full right):
+
+```csharp Lumix/Tracks/Track.cs
+if (UiElement.DragSlider($"{FontAwesome6.RightLeft}##track_pan", 105, ref _pan, 0.1f, -50f, 50f, "%.0f", ImGuiSliderFlags.AlwaysClamp | ImGuiSliderFlags.NoInput))
+{
+    float mappedPan = _pan / 50f;
+    Engine.StereoSampleProvider.Pan = mappedPan;
+}
+```
+
+Double-click the pan slider to reset to center (0).
+
+### Solo Behavior
+
+```csharp Lumix/Tracks/Track.cs
+if (UiElement.Toggle($"{Fontaudio.Solo}##track_solo", _solo, new Vector4(0.17f, 0.49f, 0.85f, 1f), new(35, 25)))
+{
+    _solo = !_solo;
+    ArrangementView.Tracks.ToList().ForEach(track =>
+    {
+        if (track == this)
+        {
+            if (ImGui.IsKeyDown(ImGuiKey.ModCtrl))
+                _enabled = !_enabled;
+            else
+                _enabled = true;
+        }
+        if (track != this)
+        {
+            if (!ImGui.IsKeyDown(ImGuiKey.ModCtrl))
+            {
+                track._enabled = !_solo;
+                track._solo = false;
+            }
+        }
+    });
+}
+```
+
+<Note>
+  Holding **Ctrl** while clicking solo allows multiple tracks to be soloed simultaneously.
+</Note>
+
+## Audio-Specific Tracks
+
+Audio tracks handle audio file playback:
+
+```csharp Lumix/Tracks/AudioTracks/AudioTrack.cs
+public class AudioTrack : Track
+{
+    public override TrackType TrackType => TrackType.Audio;
+
+    public AudioTrack(string name)
+    {
+        Name = name;
+        Vector4 trackCol = ImGuiTheme.GetRandomColor();
+        Color = trackCol;
+        Engine = new TrackAudioEngine(this, AudioSettings.SampleRate);
+        Engine.VolumeMeasured += (sender, e) =>
+        {
+            _leftChannelGain = e.MaxSampleValues[0];
+            _rightChannelGain = e.MaxSampleValues[1];
+        };
+        ArrangementView.MasterTrack.AudioEngine.AddTrack(Engine);
+    }
+}
+```
+
+## MIDI-Specific Tracks
+
+MIDI tracks handle MIDI data and virtual instruments:
+
+```csharp Lumix/Tracks/MidiTracks/MidiTrack.cs
+public class MidiTrack : Track
+{
+    public override TrackType TrackType => TrackType.Midi;
+
+    public MidiTrack(string name = "")
+    {
+        Name = name;
+        Vector4 trackCol = ImGuiTheme.GetRandomColor();
+        Color = trackCol;
+        Engine = new TrackMidiEngine(this, AudioSettings.SampleRate);
+        Engine.VolumeMeasured += (sender, e) =>
+        {
+            _leftChannelGain = e.MaxSampleValues[0];
+            _rightChannelGain = e.MaxSampleValues[1];
+        };
+        ArrangementView.MasterTrack.AudioEngine.AddTrack(Engine);
+    }
+}
+```
+
+### Creating MIDI Clips
+
+MIDI tracks can create clips programmatically:
+
+```csharp Lumix/Tracks/MidiTracks/MidiTrack.cs
+public void CreateMidiClip(long time)
+{
+    var clip = new MidiClip(this, time);
+    Clips.Add(clip);
+}
+
+public void CreateMidiClip(TimeSelection time)
+{
+    var clip = new MidiClip(this, time);
+    Clips.Add(clip);
+}
+```
+
+<Note>
+  Double-clicking on an empty area of a MIDI track automatically creates a new clip at that position.
+</Note>
+
+## Track Operations
+
+### Duplicating Tracks
+
+Tracks can be duplicated with all their settings and clips:
+
+```csharp Lumix/Tracks/Track.cs
+if (ImGui.MenuItem("Duplicate", "Ctrl+D"))
+{
+    if (this is AudioTrack)
+    {
+        // Create new track and copy data
+        var track = ArrangementView.NewAudioTrack(this.Name, ArrangementView.Tracks.IndexOf(this) + 1);
+        foreach (AudioClip clip in Clips.Cast<AudioClip>())
+        {
+            var copy_clip = new AudioClip(track, clip.Clip, clip.StartTick) { 
+                Enabled = clip.Enabled,
+                Color = clip.Color
+            };
+            track.Clips.Add(copy_clip);
+        }
+        track._enabled = this.Enabled;
+        track._volume = this.Volume;
+        // ... additional properties copied
+    }
+}
+```
+
+### Reordering Tracks
+
+Tracks can be moved up or down in the arrangement:
+
+```csharp Lumix/Tracks/Track.cs
+if (UiElement.Button($"{FontAwesome6.ArrowUp}", new(22, 25)))
+{
+    var copy = this;
+    int idx = ArrangementView.Tracks.IndexOf(this);
+    if (idx > 0)
+    {
+        var target = ArrangementView.Tracks[idx - 1];
+        ArrangementView.Tracks[idx] = target;
+        ArrangementView.Tracks[idx - 1] = copy;
+    }
+}
+```
+
+## Volume Metering
+
+Each track displays real-time audio level metering:
+
+```csharp Lumix/Tracks/Track.cs
+// Smooth gain variables (adjusted for smoother transitions)
+_smoothLeftChannelGain = Lerp(_smoothLeftChannelGain, _leftChannelGain, smoothingFactor);
+_smoothRightChannelGain = Lerp(_smoothRightChannelGain, _rightChannelGain, smoothingFactor);
+```
+
+The meters show stereo levels with smoothing applied for visual stability.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+T** | Insert Audio Track |
+| **Ctrl+Shift+T** | Insert MIDI Track |
+| **Ctrl+D** | Duplicate Track |
+| **Ctrl+R** | Rename Track |
+| **Del** | Delete Track |
+| **Ctrl+Shift+M** | Create MIDI Clip from Selection |
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Clips" href="/core-concepts/clips" icon="scissors">
+    Learn about clip management and editing
+  </Card>
+  <Card title="Timeline" href="/core-concepts/timeline" icon="timeline">
+    Understand the timeline and arrangement system
+  </Card>
+</CardGroup>

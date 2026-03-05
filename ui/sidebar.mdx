@@ -1,0 +1,473 @@
+---
+title: "Sidebar"
+description: "File browser and plugin library for quick access to audio assets"
+icon: "sidebar"
+---
+
+# Sidebar
+
+The Sidebar is your central hub for browsing audio files, MIDI files, plugins, and built-in effects. It provides an organized, searchable interface for finding and previewing content before adding it to your project.
+
+<img
+  src="/images/sidebar-placeholder.png"
+  alt="Sidebar showing file browser with audio files and folders"
+/>
+
+## Overview
+
+The Sidebar occupies the left side of the Lumix interface and features:
+- **Resizable width** - Drag the right edge to adjust (600px minimum, 60% of screen maximum)
+- **Two-column layout** - Navigation on the left, content on the right
+- **Preview panel** - Waveform/MIDI visualization at the bottom
+- **Hide/Show toggle** - Collapse to maximize arrangement space
+
+<Note>
+  The Sidebar automatically constrains its size between 600px and 60% of your display width to maintain usability.
+</Note>
+
+## Interface Layout
+
+### Search Bar
+
+At the top of the sidebar, a search bar filters all content in real-time:
+
+```
+🔍 Search (Ctrl + F)
+```
+
+- Searches file names, folder names, and plugin names
+- Case-insensitive matching
+- Filters as you type
+- Clear by deleting search text
+
+<Tip>
+  Use `Ctrl + F` to quickly jump to the search bar from anywhere in Lumix.
+</Tip>
+
+### Hide/Show Toggle
+
+The small caret button controls sidebar visibility:
+- **►** (Caret Right) - Sidebar is visible, click to hide
+- **▼** (Caret Down) - Sidebar is hidden, click to show
+
+### Navigation Panel (Left Column)
+
+Fixed at 160px wide, contains:
+
+#### Collections
+
+Color-coded categories for organizing favorites:
+
+<CardGroup cols={3}>
+  <Card title="Favorites" icon="square" iconType="solid" color="#FF0202">
+    Quick access starred items
+  </Card>
+  <Card title="Orange" icon="square" iconType="solid" color="#FFA629">
+    Custom color collection
+  </Card>
+  <Card title="Yellow" icon="square" iconType="solid" color="#FFF033">
+    Custom color collection
+  </Card>
+  <Card title="Green" icon="square" iconType="solid" color="#26FFA8">
+    Custom color collection
+  </Card>
+  <Card title="Blue" icon="square" iconType="solid" color="#0FA4ED">
+    Custom color collection
+  </Card>
+  <Card title="Purple" icon="square" iconType="solid" color="#B88CFF">
+    Custom color collection
+  </Card>
+  <Card title="Gray" icon="square" iconType="solid" color="#A8A8A8">
+    Custom color collection
+  </Card>
+</CardGroup>
+
+<Warning>
+  Color collections are currently visual placeholders. This feature is planned for future implementation.
+</Warning>
+
+#### Categories
+
+Main content browser tabs:
+
+- **🎵 Sounds** - Audio samples (not yet implemented)
+- **🥁 Drums** - Drum samples (not yet implemented)
+- **🎸 Instruments** - Virtual instruments (not yet implemented)
+- **💥 Audio Effects** - Built-in effect plugins
+- **🔌 Plug-Ins** - VST2 plugin files
+
+#### Places
+
+Custom folder locations for audio files:
+
+- Shows folders added via **+ Add Folder...**
+- Click a folder to browse its contents
+- Displays folder name only (not full path)
+- Active folder highlighted when selected
+
+**Adding Folders:**
+1. Click **📁+ Add Folder...**
+2. Browse to your audio library location
+3. Select folder
+4. Folder appears in Places list
+
+### Content Panel (Right Column)
+
+Displays content based on the selected category:
+
+#### Sort Controls
+
+Menu bar with sorting options:
+- **Name** - Click to toggle alphabetical sorting
+- **Arrow icon** - Indicates sort direction:
+  - ▼ (Arrow Down A-Z) - Ascending (A to Z)
+  - ▲ (Arrow Up Z-A) - Descending (Z to A)
+
+## Browser Tabs
+
+### Audio Effects
+
+Browse built-in Lumix effects organized by category:
+
+```
+📁 Category Name
+  ⏺️ Effect Plugin 1
+  ⏺️ Effect Plugin 2
+  ⏺️ Effect Plugin 3
+```
+
+**Categories include:**
+- Dynamics (compressors, limiters, gates)
+- EQ (equalizers, filters)
+- Modulation (chorus, flanger, phaser)
+- Time-based (reverb, delay, echo)
+- Distortion (saturation, overdrive)
+- Utility (gain, phase, stereo)
+
+**Interaction:**
+- Click tree node to expand/collapse category
+- Hover over plugin to highlight in black text
+- Drag plugin to [Devices View](/ui/devices-view) to add to track
+
+### Plug-Ins (VST2)
+
+Browse VST2 plugin files from your configured plugin folder:
+
+```
+📁 vstplugins
+  📁 Manufacturer A
+    🔌 Plugin1.dll
+    🔌 Plugin2.dll
+  📁 Manufacturer B
+    🔌 Plugin3.dll
+```
+
+**Features:**
+- Recursive folder traversal
+- Shows `.dll` files only
+- Sorted alphabetically (configurable)
+- Displays folder structure
+
+<Note>
+  Configure the VST2 plugins folder in [Preferences → Plugins](/ui/preferences#plugins-tab) before browsing.
+</Note>
+
+**Interaction:**
+- Click folder to expand/collapse
+- Hover shows black text highlight
+- Click and drag `.dll` file to Devices View to load plugin
+
+### Audio Folder (Places)
+
+Browse custom folder locations with file preview:
+
+```
+📁 My Samples
+  📁 Drums
+    🎵 kick.wav
+    🎵 snare.wav
+  📁 Synths
+    🎹 bass.mid
+    🎵 lead.mp3
+```
+
+**Supported Formats:**
+- **Audio** - `.wav`, `.mp3`
+- **MIDI** - `.mid`
+
+**File Icons:**
+- 📊 (Audiobus logo) - Audio files
+- 📶 (Bars Staggered) - MIDI files
+- 📁 (Folder icon) - Directories
+
+**Interaction:**
+- Click file to preview
+- Drag file to Arrangement View to create clip
+- Expand/collapse folders with tree nodes
+
+## Preview System
+
+### Preview Panel
+
+At the bottom of the sidebar (30px height), showing:
+- **Waveform** for audio files
+- **Piano roll** for MIDI files
+- **Volume toggle** (🔊/🔇) to enable/disable preview playback
+
+### Audio Preview
+
+When you click an audio file:
+
+1. **Waveform generation** - Peaks and valleys calculated for visualization
+2. **Playback** - Audio plays automatically (if volume enabled)
+3. **Visual display** - Waveform renders in preview panel
+4. **Resize handling** - Waveform regenerates when sidebar width changes
+
+**Waveform Colors:**
+- Active (playing): Bright/highlighted
+- Muted: Dimmed/grayed
+
+### MIDI Preview
+
+When you click a MIDI file:
+
+1. **MIDI parsing** - File loaded and analyzed
+2. **Playback** - MIDI triggers preview instrument (if volume enabled)
+3. **Visual display** - Piano roll preview in panel
+4. **Note visualization** - Shows note positions and lengths
+
+### Volume Control
+
+Click the volume icon to toggle preview playback:
+- **🔊 (Volume High)** - Previews enabled (orange when active)
+- **🔇 (Volume Mute)** - Previews disabled (grayed out)
+
+<Tip>
+  Disable preview playback when browsing large libraries to avoid constant sound triggering.
+</Tip>
+
+## Drag and Drop
+
+### Audio/MIDI Files → Arrangement
+
+Drag audio or MIDI files from the sidebar to the Arrangement View:
+
+1. Click and hold on a file
+2. Drag cursor to a track in the arrangement
+3. Release to create a clip at that position
+
+**Payload:** `"CLIP"`
+
+**Compatible:**
+- `.wav`, `.mp3` → Audio tracks
+- `.mid` → MIDI tracks
+
+### VST2 Plugins → Devices
+
+Drag `.dll` plugin files to the Devices View:
+
+1. Click and hold on a `.dll` file
+2. Drag to the Devices View
+3. Release to add to the selected track's plugin chain
+
+**Payload:** `"PLUGIN_DRAG"`
+
+**Compatible:**
+- VST2 Effects → Any track
+- VST2 Instruments (VSTi) → MIDI tracks only
+
+### Built-in Effects → Devices
+
+Drag built-in effects from Audio Effects category:
+
+1. Click and hold on an effect
+2. Drag to the Devices View
+3. Release to instantiate and add to chain
+
+**Payload:** `"BUILTIN_PLUGIN_DRAG"`
+
+**Compatible:**
+- All built-in effects → Any track
+
+<Info>
+  During drag operations, the dragged item appears under your cursor, showing the file/plugin name with its icon.
+</Info>
+
+## Search Functionality
+
+The search bar filters content across all tabs:
+
+### Search Behavior
+
+- **Case-insensitive** - "KICK" finds "kick.wav"
+- **Filename only** - Searches file/plugin name, not path
+- **Real-time** - Results update as you type
+- **Across categories** - Works in all browser tabs
+
+### Search Examples
+
+| Search Term | Matches |
+|-------------|----------|
+| `kick` | kick.wav, Kick123.mp3, my_kick_sample.wav |
+| `rev` | reverb.dll, ReverseDelay.dll |
+| `808` | 808_bass.mid, TR-808.wav |
+
+### Clear Search
+
+Delete all text in the search box or press `Ctrl + A` then `Delete`.
+
+## Folder Management
+
+### Adding Audio Folders
+
+<Steps>
+  <Step title="Click Add Folder">
+    In the Places section, click **📁+ Add Folder...**
+  </Step>
+  
+  <Step title="Browse to location">
+    Use the folder picker dialog to navigate to your audio library
+  </Step>
+  
+  <Step title="Confirm selection">
+    Click OK/Select to add the folder
+  </Step>
+  
+  <Step title="Browse contents">
+    The folder appears in Places - click to view its files
+  </Step>
+</Steps>
+
+### Removing Folders
+
+<Warning>
+  Currently there is no UI for removing folders. This feature is planned for a future update.
+</Warning>
+
+## Visual Feedback
+
+### Hover Effects
+
+All interactive elements show hover feedback:
+- **Files/Plugins** - Text changes to black when hovered
+- **Folders** - Icon and text highlighted
+- **Cursor change** - Hand pointer (👆) on clickable items
+
+### Selection States
+
+- **Active Category** - Highlighted background color
+- **Selected Folder** - Distinct background in Places
+- **Expanded Trees** - Folder icon and indented children
+
+### Collapsed/Expanded Indicators
+
+Tree nodes show their state:
+- **▶** (Collapsed) - Click to expand and show contents
+- **▼** (Expanded) - Click to collapse and hide contents
+
+## Technical Details
+
+### File Filtering
+
+The sidebar uses pattern matching for file discovery:
+
+```csharp
+// Audio/MIDI files
+string[] extensions = { "*.wav", "*.mp3", "*.mid" };
+
+// VST2 plugins
+string[] extensions = { "*.dll" };
+
+// Sorted results
+var files = _sortAscending 
+    ? Directory.GetFiles(path, ext).OrderBy(f => Path.GetFileName(f))
+    : Directory.GetFiles(path, ext).OrderByDescending(f => Path.GetFileName(f));
+```
+
+### Waveform Optimization
+
+Waveform previews are cached and regenerated only when necessary:
+
+```csharp
+// Check if window was resized
+if (windowSize.X != _previousWindowSize)
+{
+    // Regenerate waveform at new width
+    var (peaks, valleys) = WaveformRenderer.Resize(
+        (int)_waveformWidth, 
+        _waveformData.samples
+    );
+    _waveformData.peaks = peaks;
+    _waveformData.valleys = valleys;
+}
+```
+
+### Preview Engine
+
+Separate engines handle audio and MIDI preview:
+- **AudioPreviewEngine** - Plays audio files with automatic stop on new file
+- **MidiPreviewEngine** - Triggers MIDI through preview instrument
+
+## Customization
+
+### Sidebar Width
+
+Resize by dragging the right edge:
+- **Minimum** - 600px (enforced)
+- **Maximum** - 60% of screen width (enforced)
+- **Default** - 25% of screen width
+
+### Font Icons
+
+The sidebar uses custom icon fonts:
+- **FontAwesome6** - UI icons (folder, search, etc.)
+- **Fontaudio** - Audio-specific icons (waveform, VST logo, etc.)
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Organize Your Libraries">
+    - Group samples by type (drums, bass, vocals, etc.)
+    - Use descriptive folder names
+    - Keep flat hierarchies when possible (max 3-4 levels)
+    - Use consistent naming conventions for files
+  </Accordion>
+  
+  <Accordion title="Optimize Preview Workflow">
+    - Disable preview when browsing (toggle volume off)
+    - Use search to quickly find specific samples
+    - Sort by name for predictable ordering
+    - Leverage waveform preview before dragging to arrangement
+  </Accordion>
+  
+  <Accordion title="Plugin Management">
+    - Keep VST2 folder organized by manufacturer
+    - Remove unused/broken plugins from VST folder
+    - Use descriptive DLL names if possible
+    - Check compatibility before loading in Devices View
+  </Accordion>
+</AccordionGroup>
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl + F` | Focus search bar |
+| `Escape` | Clear search (when search bar focused) |
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Devices View" icon="plug" href="/ui/devices-view">
+    Where dragged plugins are loaded and managed
+  </Card>
+  <Card title="Arrangement View" icon="layer-group" href="/ui/arrangement-view">
+    Where dragged audio/MIDI files create clips
+  </Card>
+  <Card title="Preferences" icon="gear" href="/ui/preferences">
+    Configure plugin paths and audio folders
+  </Card>
+  <Card title="File Formats" icon="file" href="/core-concepts/file-formats">
+    Supported audio and MIDI file types
+  </Card>
+</CardGroup>
